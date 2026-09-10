@@ -23,7 +23,7 @@ public partial class HamsterServerForm : Form
     private volatile bool _refreshPending;
     private System.Windows.Forms.Timer _healthTimer = null!;
     private System.Windows.Forms.Timer _logTimer = null!;
-    private readonly Queue<(string text, Color color)> _logQueue = new();
+    private readonly Queue<string> _logQueue = new();
     private readonly object _logWriteLock = new();
     private Task _logWriteChain = Task.CompletedTask;
     private Icon? _baseIcon;
@@ -574,14 +574,10 @@ public partial class HamsterServerForm : Form
         // Every entry is queued regardless of the filter: the filter only decides what the
         // log pane shows. Dropping entries here also dropped them from the log file, so a
         // session run with the filter on "Error" left no record of anything else.
-        var color = msg.Contains("[ERROR]") ? UiTheme.LogError
-                  : msg.Contains("[OK]") ? UiTheme.LogOk
-                  : msg.Contains("[WARN]") ? UiTheme.LogWarn
-                  : UiTheme.LogNormal;
         lock (_logQueue)
         {
             if (_logQueue.Count >= 5000) _logQueue.Dequeue();  // Fix 1.3: tránh OOM khi UI freeze
-            _logQueue.Enqueue((msg, color));
+            _logQueue.Enqueue(msg);
         }
     }
 
@@ -605,7 +601,7 @@ public partial class HamsterServerForm : Form
     {
         if (_isExiting || !rtbLog.IsHandleCreated || rtbLog.IsDisposed) return;
 
-        (string text, Color color)[] batch;
+        string[] batch;
         lock (_logQueue)
         {
             if (_logQueue.Count == 0) return;
@@ -618,7 +614,7 @@ public partial class HamsterServerForm : Form
         SendMessage(rtbLog.Handle, WM_SETREDRAW, IntPtr.Zero, IntPtr.Zero);
         try
         {
-            foreach (var (text, color) in batch)
+            foreach (var text in batch)
             {
                 if (!PassesLogFilter(text, filter)) continue;
                 _logLineCount++;
@@ -628,9 +624,7 @@ public partial class HamsterServerForm : Form
                     if (cut > 0) { rtbLog.Select(0, cut); rtbLog.SelectedText = ""; }
                     _logLineCount -= MaxLogLines / 2;
                 }
-                rtbLog.SelectionStart = rtbLog.TextLength;
-                rtbLog.SelectionColor = color;
-                rtbLog.AppendText(text + Environment.NewLine);
+                AppendColoredLogEntry(text);
             }
             rtbLog.ScrollToCaret();
         }
@@ -643,14 +637,40 @@ public partial class HamsterServerForm : Form
         // Persist off the UI thread. This runs every 50 ms, and a slow or contended disk would
         // otherwise stall the message loop. Batches are chained rather than fired independently
         // so they still reach the file in the order they were logged.
-        var lines = Array.ConvertAll(batch, b => b.text);
         lock (_logWriteLock)
             _logWriteChain = _logWriteChain.ContinueWith(
-                _ => _logWriter.WriteBatch(lines),
+                _ => _logWriter.WriteBatch(batch),
                 CancellationToken.None,
                 TaskContinuationOptions.None,
                 TaskScheduler.Default);
     }
+
+    private void AppendColoredLogEntry(string text)
+    {
+        foreach (var segment in LogEntryFormatter.Parse(text))
+        {
+            rtbLog.SelectionStart = rtbLog.TextLength;
+            rtbLog.SelectionColor = GetLogColor(segment.Kind);
+            rtbLog.AppendText(segment.Text);
+        }
+
+        rtbLog.SelectionStart = rtbLog.TextLength;
+        rtbLog.SelectionColor = UiTheme.LogNormal;
+        rtbLog.AppendText(Environment.NewLine);
+    }
+
+    private static Color GetLogColor(LogSegmentKind kind) => kind switch
+    {
+        LogSegmentKind.Timestamp => UiTheme.LogTimestamp,
+        LogSegmentKind.Information => UiTheme.LogInfo,
+        LogSegmentKind.Success => UiTheme.LogOk,
+        LogSegmentKind.Warning => UiTheme.LogWarn,
+        LogSegmentKind.Error => UiTheme.LogError,
+        LogSegmentKind.Apache => UiTheme.LogApache,
+        LogSegmentKind.Php => UiTheme.LogPhp,
+        LogSegmentKind.Link => UiTheme.LogLink,
+        _ => UiTheme.LogNormal
+    };
 
     // Direct write for messages generated on the UI thread before the timer starts
     private void LogDirect(string msg)
@@ -658,7 +678,7 @@ public partial class HamsterServerForm : Form
         lock (_logQueue)
         {
             if (_logQueue.Count >= 5000) _logQueue.Dequeue();
-            _logQueue.Enqueue((msg, UiTheme.LogNormal));
+            _logQueue.Enqueue(msg);
         }
     }
 
