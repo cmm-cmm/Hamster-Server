@@ -115,6 +115,17 @@ network and review Windows Firewall rules before exposing a development server.
 ## Development workflow
 
 - `main` is the stable branch.
-- `dev` contains ongoing development.
+- Create focused feature or fix branches from `main`.
 - Keep commits focused and include tests for reusable configuration or lifecycle logic.
-- Include screenshots in merge requests for visible UI changes.
+- Include screenshots in pull requests for visible UI changes.
+
+## Contributing and License
+
+Contributions are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) and the
+[Code of Conduct](CODE_OF_CONDUCT.md) before opening an issue or pull request.
+Security vulnerabilities must be reported privately according to
+[SECURITY.md](SECURITY.md).
+
+Hamster Server source code is available under the [MIT License](LICENSE).
+Bundled Apache, PHP, and related runtime components retain their respective
+upstream licenses; see [THIRD_PARTY_RUNTIMES.md](THIRD_PARTY_RUNTIMES.md).
