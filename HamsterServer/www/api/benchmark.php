@@ -26,15 +26,15 @@ try {
     $elapsedMs = (hrtime(true) - $startedAt) / 1_000_000;
     $formattedTime = number_format($elapsedMs, 3, '.', '');
 
-    header('Server-Timing: php;dur=' . $formattedTime);
-    header('X-Benchmark-Time-Ms: ' . $formattedTime);
+    header('Server-Timing: php-workload;dur=' . $formattedTime);
+    header('X-Benchmark-Workload-Time-Ms: ' . $formattedTime);
     echo json_encode([
         'ok' => true,
         'profile' => $profile,
         'intensity' => $intensity,
         'operations' => $result['operations'],
         'checksum' => $result['checksum'],
-        'server_ms' => round($elapsedMs, 3),
+        'workload_ms' => round($elapsedMs, 3),
         'peak_memory_bytes' => memory_get_peak_usage(true),
     ], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES);
 } catch (Throwable) {

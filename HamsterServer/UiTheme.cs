@@ -23,6 +23,10 @@ internal static class UiTheme
     public static readonly Color LogOk = StatusRunning;
     public static readonly Color LogWarn = StatusTransition;
     public static readonly Color LogError = StatusError;
+    public static readonly Color LogTimestamp = SystemColors.GrayText;
+    public static readonly Color LogApache = Color.FromArgb(0, 90, 180);
+    public static readonly Color LogPhp = Color.FromArgb(112, 48, 160);
+    public static readonly Color LogLink = Color.FromArgb(0, 102, 204);
 
     // ── Config syntax highlighting (httpd.conf / php.ini, light editor) ──────
     // Visual Studio classic palette — readable on SystemColors.Window.

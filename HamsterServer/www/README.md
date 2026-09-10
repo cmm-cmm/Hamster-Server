@@ -20,9 +20,10 @@ Nút **Xuất JSON** lưu kết quả tóm tắt để so sánh giữa phiên b�
 
 ## Diễn giải
 
-- **Request/giây** càng cao càng tốt.
-- **P95/P99** thể hiện độ trễ của các request chậm; thấp và ổn định quan trọng hơn một giá trị trung bình đẹp.
-- **PHP xử lý TB** lấy từ header do endpoint trả về, không bao gồm thời gian mạng/trình duyệt.
+- **Request thành công/giây** là thông lượng chính; **RPS đã thử** cho biết tổng tốc độ phản hồi kể cả lỗi.
+- **P95/P99** bao gồm mọi request đã hoàn tất, kể cả HTTP/network error, để không che khuất tail latency.
+- **Workload PHP TB** lấy từ header do endpoint trả về và chỉ đo phần workload có chủ đích, không bao gồm thời gian mạng/trình duyệt.
+- **HTTP status** tách số phản hồi theo mã; lỗi không có response được ghi là `Network`.
 - Baseline và payload giúp tách overhead web server khỏi workload ứng dụng.
 
 Không chạy mức đồng thời cao trên máy chủ công khai hoặc trong lúc các website quan trọng đang hoạt động. Các endpoint giới hạn intensity và payload nhưng benchmark vẫn có chủ đích tạo tải CPU/mạng.
