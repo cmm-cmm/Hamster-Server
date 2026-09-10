@@ -177,6 +177,26 @@ public sealed class ApacheConfigWriterTests
     }
 
     [TestMethod]
+    public void WriteHttpdConf_CachesOnlyExplicitStaticMimeTypes()
+    {
+        using var root = new TestDirectory();
+        var apacheDir = Path.Combine(root.Path, "apache", "Apache24");
+        var configDir = Path.Combine(root.Path, "config");
+        Directory.CreateDirectory(apacheDir);
+        var config = new AppConfig();
+
+        var output = Path.Combine(configDir, "httpd.conf");
+        new ApacheConfigWriter(root.Path, config).WriteHttpdConf(
+            output, apacheDir, Path.Combine(root.Path, "www"), configDir);
+
+        var text = File.ReadAllText(output);
+        StringAssert.Contains(text, "ExpiresByType text/css");
+        StringAssert.Contains(text, "ExpiresByType application/javascript");
+        StringAssert.Contains(text, "ExpiresByType text/javascript");
+        Assert.IsFalse(text.Contains("ExpiresDefault", StringComparison.Ordinal));
+    }
+
+    [TestMethod]
     public void WriteAllVHosts_UsesCollisionResistantFileNames()
     {
         using var root = new TestDirectory();
