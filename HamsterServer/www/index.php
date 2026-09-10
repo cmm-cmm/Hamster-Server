@@ -138,8 +138,8 @@ $tests = [
 
             <div class="result-area">
                 <div class="metric-grid">
-                    <article class="metric metric--accent"><span>Thông lượng</span><strong id="requestsPerSecond">—</strong><small>request/giây</small></article>
-                    <article class="metric"><span>Trung bình</span><strong id="averageLatency">—</strong><small>mili giây</small></article>
+                    <article class="metric metric--accent"><span>Thông lượng thành công</span><strong id="requestsPerSecond">—</strong><small>request/giây</small></article>
+                    <article class="metric"><span>Trung bình (tất cả)</span><strong id="averageLatency">—</strong><small>mili giây</small></article>
                     <article class="metric"><span>P95</span><strong id="p95Latency">—</strong><small>mili giây</small></article>
                     <article class="metric"><span>P99</span><strong id="p99Latency">—</strong><small>mili giây</small></article>
                     <article class="metric"><span>Thành công</span><strong id="successRate">—</strong><small>tỷ lệ phản hồi</small></article>
@@ -151,8 +151,9 @@ $tests = [
                 </div>
                 <div class="details-card"><table><tbody>
                     <tr><th>Thời gian tổng</th><td id="totalDuration">—</td><th>Request lỗi</th><td id="failedRequests">—</td></tr>
+                    <tr><th>RPS đã thử</th><td id="attemptedRequestsPerSecond">—</td><th>HTTP status</th><td id="httpStatusCounts">—</td></tr>
                     <tr><th>Nhỏ nhất</th><td id="minLatency">—</td><th>Lớn nhất</th><td id="maxLatency">—</td></tr>
-                    <tr><th>P50</th><td id="p50Latency">—</td><th>PHP xử lý TB</th><td id="serverAverage">—</td></tr>
+                    <tr><th>P50</th><td id="p50Latency">—</td><th>Workload PHP TB</th><td id="serverAverage">—</td></tr>
                     <tr><th>Dữ liệu nhận</th><td id="transferredBytes">—</td><th>Concurrency</th><td id="usedConcurrency">—</td></tr>
                 </tbody></table></div>
             </div>

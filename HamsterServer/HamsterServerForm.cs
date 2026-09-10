@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Reflection;
 using System.Runtime.InteropServices;
+using System.Text;
 using HamsterServer.Core;
 using HamsterServer.Forms;
 using HamsterServer.Models;
@@ -24,8 +25,6 @@ public partial class HamsterServerForm : Form
     private System.Windows.Forms.Timer _healthTimer = null!;
     private System.Windows.Forms.Timer _logTimer = null!;
     private readonly Queue<string> _logQueue = new();
-    private readonly object _logWriteLock = new();
-    private Task _logWriteChain = Task.CompletedTask;
     private Icon? _baseIcon;
     private Icon? _statusIcon;
     private Color _lastStatusDotColor = Color.Empty;
@@ -571,9 +570,9 @@ public partial class HamsterServerForm : Form
     // Called from any thread — just enqueue, never touch the RTB here
     private void OnLog(object? sender, string msg)
     {
-        // Every entry is queued regardless of the filter: the filter only decides what the
-        // log pane shows. Dropping entries here also dropped them from the log file, so a
-        // session run with the filter on "Error" left no record of anything else.
+        // File persistence is independent from the bounded UI queue. A frozen UI may omit old
+        // display entries, but the dedicated writer still receives every log message.
+        _logWriter.Enqueue(msg);
         lock (_logQueue)
         {
             if (_logQueue.Count >= 5000) _logQueue.Dequeue();  // Fix 1.3: tránh OOM khi UI freeze
@@ -609,23 +608,59 @@ public partial class HamsterServerForm : Form
             _logQueue.Clear();
         }
 
-        // Freeze redraws — one repaint after the whole batch instead of N
         var filter = _logFilter;
+        var displayText = new StringBuilder(batch.Sum(text => text.Length + Environment.NewLine.Length));
+        var colorSpans = new List<LogTextSpan>();
+        int appendedLines = 0;
+        foreach (var text in batch)
+        {
+            if (!PassesLogFilter(text, filter)) continue;
+            string displayEntry = LogEntryFormatter.NormalizeForDisplay(text);
+            int entryStart = displayText.Length;
+            displayText.Append(displayEntry).Append('\n');
+            appendedLines += 1 + displayEntry.Count(ch => ch == '\n');
+
+            foreach (var span in LogEntryFormatter.ParseSpans(displayEntry))
+            {
+                if (span.Kind != LogSegmentKind.Normal)
+                    colorSpans.Add(span with { Start = entryStart + span.Start });
+            }
+        }
+
+        if (displayText.Length == 0) return;
+
+        // Append the visible batch once, then color only the semantic ranges.
         SendMessage(rtbLog.Handle, WM_SETREDRAW, IntPtr.Zero, IntPtr.Zero);
         try
         {
-            foreach (var text in batch)
+            int appendStart = rtbLog.TextLength;
+            rtbLog.SelectionStart = appendStart;
+            rtbLog.SelectionLength = 0;
+            rtbLog.SelectionColor = UiTheme.LogNormal;
+            rtbLog.AppendText(displayText.ToString());
+
+            foreach (var span in colorSpans)
             {
-                if (!PassesLogFilter(text, filter)) continue;
-                _logLineCount++;
-                if (_logLineCount > MaxLogLines)
-                {
-                    int cut = rtbLog.GetFirstCharIndexFromLine(MaxLogLines / 2);
-                    if (cut > 0) { rtbLog.Select(0, cut); rtbLog.SelectedText = ""; }
-                    _logLineCount -= MaxLogLines / 2;
-                }
-                AppendColoredLogEntry(text);
+                rtbLog.Select(appendStart + span.Start, span.Length);
+                rtbLog.SelectionColor = GetLogColor(span.Kind);
             }
+
+            _logLineCount += appendedLines;
+            if (_logLineCount > MaxLogLines)
+            {
+                int linesToRemove = _logLineCount - MaxLogLines / 2;
+                int cut = rtbLog.GetFirstCharIndexFromLine(linesToRemove);
+                if (cut > 0)
+                {
+                    rtbLog.Select(0, cut);
+                    rtbLog.SelectedText = "";
+                    _logLineCount -= linesToRemove;
+                }
+            }
+
+            rtbLog.SelectionStart = rtbLog.TextLength;
+            rtbLog.SelectionLength = 0;
+            rtbLog.SelectionColor = UiTheme.LogNormal;
             rtbLog.ScrollToCaret();
         }
         finally
@@ -634,29 +669,6 @@ public partial class HamsterServerForm : Form
             rtbLog.Invalidate();
         }
 
-        // Persist off the UI thread. This runs every 50 ms, and a slow or contended disk would
-        // otherwise stall the message loop. Batches are chained rather than fired independently
-        // so they still reach the file in the order they were logged.
-        lock (_logWriteLock)
-            _logWriteChain = _logWriteChain.ContinueWith(
-                _ => _logWriter.WriteBatch(batch),
-                CancellationToken.None,
-                TaskContinuationOptions.None,
-                TaskScheduler.Default);
-    }
-
-    private void AppendColoredLogEntry(string text)
-    {
-        foreach (var segment in LogEntryFormatter.Parse(text))
-        {
-            rtbLog.SelectionStart = rtbLog.TextLength;
-            rtbLog.SelectionColor = GetLogColor(segment.Kind);
-            rtbLog.AppendText(segment.Text);
-        }
-
-        rtbLog.SelectionStart = rtbLog.TextLength;
-        rtbLog.SelectionColor = UiTheme.LogNormal;
-        rtbLog.AppendText(Environment.NewLine);
     }
 
     private static Color GetLogColor(LogSegmentKind kind) => kind switch
@@ -675,6 +687,7 @@ public partial class HamsterServerForm : Form
     // Direct write for messages generated on the UI thread before the timer starts
     private void LogDirect(string msg)
     {
+        _logWriter.Enqueue(msg);
         lock (_logQueue)
         {
             if (_logQueue.Count >= 5000) _logQueue.Dequeue();
@@ -948,9 +961,8 @@ public partial class HamsterServerForm : Form
         }
         finally
         {
-            // Give the queued disk writes a bounded moment to land before the process goes away.
-            try { _logWriteChain.Wait(TimeSpan.FromSeconds(2)); } catch { }
             _server.Dispose();
+            _logWriter.CompleteAndFlush(TimeSpan.FromSeconds(2));
             Application.Exit();
         }
     }

@@ -8,6 +8,9 @@
     <RootNamespace>HamsterServer.Tests</RootNamespace>
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
+    <!-- Runtime smoke tests use the repository copies directly; do not duplicate ~400 MiB
+         of Apache/PHP content in the test output through the project reference. -->
+    <_GetChildProjectCopyToOutputDirectoryItems>false</_GetChildProjectCopyToOutputDirectoryItems>
   </PropertyGroup>
 
   <ItemGroup>

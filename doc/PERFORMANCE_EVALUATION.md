@@ -2,10 +2,10 @@
 
 ## Phạm vi
 
-- Nhánh đánh giá: `dev`, trọng tâm là commit `0585bc8` (`Pool the FastCGI connection instead of reconnecting per request`).
+- Nhánh đánh giá: `dev`; kết quả soak test được giữ từ lần đánh giá connection pooling ban đầu.
 - Runtime kiểm chứng: Apache 2.4.68 Win64, PHP 8.5.9 NTS FastCGI, 8 PHP worker.
 - Thành phần liên quan: sinh cấu hình Apache/PHP, vòng đời worker và ứng dụng benchmark PHP trong `HamsterServer/www/`.
-- Ngày đánh giá độc lập: 2026-09-08.
+- Ngày đánh giá độc lập: 2026-09-08; cập nhật P1/P2 ngày 2026-09-10.
 
 ## Kết luận
 
@@ -24,7 +24,7 @@ Tài liệu tham khảo:
 | Phép kiểm tra | Kết quả |
 |---|---|
 | `dotnet build HamsterServer.slnx -c Release --no-restore` | Thành công, 0 cảnh báo/lỗi |
-| `dotnet test HamsterServer.slnx -c Release --no-build --no-restore` | 23/23 test qua |
+| `dotnet test HamsterServer.slnx -c Release --no-restore` | 51/51 test qua |
 | `dotnet format HamsterServer.slnx --verify-no-changes --no-restore` | Thành công |
 | Apache config test | `Syntax OK` |
 | PHP lint 8.2, 8.3, 8.4, 8.5 | Toàn bộ file benchmark hợp lệ |
@@ -45,13 +45,13 @@ Kết quả thứ hai cho thấy việc giảm/tắt recycle không làm suy gi�
 
 `ApacheConfigWriter.FcgiReuse` sinh `enablereuse=on max=<Workers> ttl=15`, trong khi `ServerManager` luôn truyền `PHP_FCGI_MAX_REQUESTS`. `ttl` chỉ loại kết nối đã nhàn rỗi đủ lâu; nó không ngăn race condition khi worker đóng một kết nối đang được tái sử dụng liên tục.
 
-### 2. Dashboard tính thông lượng gồm request lỗi — mức trung bình
+### 2. Dashboard tính thông lượng gồm request lỗi — đã xử lý
 
-`requests_per_second` hiện dùng tổng số request hoàn tất, bao gồm HTTP lỗi. Báo cáo vì vậy có thể giữ req/s cao dù success rate giảm. Latency của request lỗi cũng không được đưa vào P95/P99, làm số liệu tail latency đẹp hơn thực tế.
+Dashboard hiện tách thông lượng thành công và thông lượng đã thử, thống kê HTTP status/network error, đồng thời đưa latency của mọi request hoàn tất vào P50/P95/P99.
 
-### 3. Chỉ số “PHP xử lý” chỉ đo workload — mức trung bình
+### 3. Chỉ số “PHP xử lý” chỉ đo workload — đã làm rõ
 
-Timer trong `api/benchmark.php` bắt đầu sau bootstrap, nạp lớp và kiểm tra input, đồng thời kết thúc trước khi mã hóa/gửi JSON. Chỉ số này hữu ích để so CPU workload nhưng chưa phải tổng thời gian xử lý PHP của request.
+Tên trường, response header và nhãn UI đã đổi thành “Workload PHP” để phản ánh đúng phạm vi: chỉ đo phần tải có chủ đích, không đại diện cho tổng thời gian request.
 
 ### 4. Thiếu kiểm thử hồi quy cho pool — mức trung bình
 
@@ -70,9 +70,9 @@ Test hiện tại xác minh cú pháp Apache nhưng chưa kiểm tra `max` bám 
 
 ### Ưu tiên P1 — độ chính xác benchmark
 
-1. Hiển thị riêng `attempted req/s`, `successful req/s`, status-code breakdown và exception count.
-2. Ghi lại latency của request lỗi; báo P95/P99 cho cả request thành công và toàn bộ attempt.
-3. Đổi nhãn hiện tại thành “Thời gian workload PHP”, hoặc thêm timer tổng từ đầu endpoint đến trước khi flush response.
+1. Đã hiển thị riêng `attempted req/s`, `successful req/s`, status-code breakdown và network error.
+2. Đã ghi latency của mọi request hoàn tất và báo P50/P95/P99 trên toàn bộ tập này.
+3. Đã đổi nhãn và schema thành “Workload PHP”.
 4. Xuất thêm phiên bản Apache/PHP, OPcache/JIT, worker count, MaxRequests, CPU và RAM vào JSON để kết quả có thể tái lập.
 5. Dùng công cụ tải ngoài trình duyệt như ApacheBench, `wrk` hoặc k6 cho capacity test. Dashboard trình duyệt phù hợp với kiểm tra nhanh, nhưng browser có thể giới hạn số kết nối HTTP/1.1 thực tế thấp hơn concurrency đã nhập.
 

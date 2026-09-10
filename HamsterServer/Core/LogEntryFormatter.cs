@@ -16,30 +16,53 @@ public enum LogSegmentKind
 }
 
 public readonly record struct LogTextSegment(string Text, LogSegmentKind Kind);
+public readonly record struct LogTextSpan(int Start, int Length, LogSegmentKind Kind);
 
 /// <summary>Splits a log entry into semantic spans without altering its persisted text.</summary>
 public static partial class LogEntryFormatter
 {
+    /// <summary>
+    /// RichTextBox stores every line break as LF even when AppendText receives CRLF. Normalize
+    /// before calculating spans so selection offsets continue to match the displayed text.
+    /// </summary>
+    public static string NormalizeForDisplay(string text)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+        return text.Contains('\r') ? text.ReplaceLineEndings("\n") : text;
+    }
+
     public static IReadOnlyList<LogTextSegment> Parse(string text)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+        return ParseSpans(text)
+            .Select(span => new LogTextSegment(text.Substring(span.Start, span.Length), span.Kind))
+            .ToArray();
+    }
+
+    /// <summary>
+    /// Returns offsets into the original entry so UI callers can apply formatting without
+    /// allocating a substring for every semantic token.
+    /// </summary>
+    public static IReadOnlyList<LogTextSpan> ParseSpans(string text)
     {
         ArgumentNullException.ThrowIfNull(text);
         if (text.Length == 0) return [];
 
-        var segments = new List<LogTextSegment>();
+        var spans = new List<LogTextSpan>();
         int position = 0;
         foreach (Match match in SemanticTokenPattern().Matches(text))
         {
             if (match.Index > position)
-                AddSegment(segments, text[position..match.Index], LogSegmentKind.Normal);
+                AddSpan(spans, position, match.Index - position, LogSegmentKind.Normal);
 
-            AddSegment(segments, match.Value, GetKind(match));
+            AddSpan(spans, match.Index, match.Length, GetKind(match));
             position = match.Index + match.Length;
         }
 
         if (position < text.Length)
-            AddSegment(segments, text[position..], LogSegmentKind.Normal);
+            AddSpan(spans, position, text.Length - position, LogSegmentKind.Normal);
 
-        return segments;
+        return spans;
     }
 
     private static LogSegmentKind GetKind(Match match)
@@ -60,18 +83,18 @@ public static partial class LogEntryFormatter
         };
     }
 
-    private static void AddSegment(
-        List<LogTextSegment> segments, string text, LogSegmentKind kind)
+    private static void AddSpan(
+        List<LogTextSpan> spans, int start, int length, LogSegmentKind kind)
     {
-        if (text.Length == 0) return;
-        if (segments.Count > 0 && segments[^1].Kind == kind)
+        if (length == 0) return;
+        if (spans.Count > 0 && spans[^1].Kind == kind && spans[^1].Start + spans[^1].Length == start)
         {
-            var previous = segments[^1];
-            segments[^1] = previous with { Text = previous.Text + text };
+            var previous = spans[^1];
+            spans[^1] = previous with { Length = previous.Length + length };
             return;
         }
 
-        segments.Add(new LogTextSegment(text, kind));
+        spans.Add(new LogTextSpan(start, length, kind));
     }
 
     [GeneratedRegex(
