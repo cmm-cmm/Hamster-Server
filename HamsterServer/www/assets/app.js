@@ -77,23 +77,40 @@
 
     async function issueRequest(url, signal) {
         const startedAt = performance.now();
-        const response = await fetch(url, { cache: 'no-store', signal });
-        const body = await response.arrayBuffer();
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        const serverTime = Number.parseFloat(response.headers.get('X-Benchmark-Time-Ms') || '');
-        return {
-            elapsed: performance.now() - startedAt,
-            bytes: body.byteLength,
-            serverTime: Number.isFinite(serverTime) ? serverTime : null
-        };
+        try {
+            const response = await fetch(url, { cache: 'no-store', signal });
+            const body = await response.arrayBuffer();
+            const serverTime = Number.parseFloat(
+                response.headers.get('X-Benchmark-Workload-Time-Ms') ||
+                response.headers.get('X-Benchmark-Time-Ms') || '');
+            return {
+                ok: response.ok,
+                status: response.status,
+                elapsed: performance.now() - startedAt,
+                bytes: body.byteLength,
+                serverTime: response.ok && Number.isFinite(serverTime) ? serverTime : null
+            };
+        } catch (error) {
+            if (error.name === 'AbortError') throw error;
+            return {
+                ok: false,
+                status: 0,
+                elapsed: performance.now() - startedAt,
+                bytes: 0,
+                serverTime: null,
+                error: error instanceof Error ? error.message : String(error)
+            };
+        }
     }
 
     async function warmUp(profile, intensity, payloadBytes, concurrency, signal) {
         const count = Math.min(20, Math.max(4, concurrency * 2));
         controls.progressLabel.textContent = `Warm-up ${count} request…`;
-        await Promise.all(Array.from({ length: count }, (_, index) =>
+        const results = await Promise.all(Array.from({ length: count }, (_, index) =>
             issueRequest(requestUrl(profile, intensity, payloadBytes, `warmup-${index}`), signal)
         ));
+        const failure = results.find((result) => !result.ok);
+        if (failure) throw new Error(failure.status ? `HTTP ${failure.status}` : 'Lỗi mạng khi warm-up');
     }
 
     function setRunning(running) {
@@ -124,17 +141,28 @@
             : sorted[lower] + fraction * (sorted[lower + 1] - sorted[lower]);
     }
 
-    function summarize(total, concurrency, elapsedMs, results, errors, stopped) {
+    function summarize(total, concurrency, elapsedMs, results, stopped) {
+        const successfulResults = results.filter((result) => result.ok);
         const latencies = results.map((result) => result.elapsed);
         const sorted = [...latencies].sort((a, b) => a - b);
-        const serverTimes = results.map((result) => result.serverTime).filter(Number.isFinite);
+        const serverTimes = successfulResults.map((result) => result.serverTime).filter(Number.isFinite);
         const bytes = results.reduce((sum, result) => sum + result.bytes, 0);
         const seconds = Math.max(elapsedMs / 1000, 0.001);
-        const completed = results.length + errors;
+        const completed = results.length;
+        const failed = completed - successfulResults.length;
+        const statusCounts = results.reduce((counts, result) => {
+            const key = result.status === 0 ? 'network_error' : String(result.status);
+            counts[key] = (counts[key] || 0) + 1;
+            return counts;
+        }, {});
         return {
             generated_at: new Date().toISOString(), profile: currentProfile, stopped,
-            requested: total, completed, successful: results.length, failed: errors, concurrency,
-            duration_ms: elapsedMs, requests_per_second: completed / seconds,
+            requested: total, completed, successful: successfulResults.length, failed, concurrency,
+            duration_ms: elapsedMs,
+            requests_per_second: successfulResults.length / seconds,
+            attempted_requests_per_second: completed / seconds,
+            status_counts: statusCounts,
+            latency_scope: 'all_completed_requests',
             transferred_bytes: bytes, throughput_mib_per_second: bytes / 1048576 / seconds,
             latency_ms: {
                 min: sorted[0] || 0,
@@ -142,7 +170,7 @@
                 p50: percentile(sorted, .5), p95: percentile(sorted, .95), p99: percentile(sorted, .99),
                 max: sorted.at(-1) || 0
             },
-            average_php_time_ms: serverTimes.length
+            average_php_workload_time_ms: serverTimes.length
                 ? serverTimes.reduce((sum, value) => sum + value, 0) / serverTimes.length
                 : null,
             samples_ms: latencies
@@ -150,6 +178,13 @@
     }
 
     const formatMs = (value) => `${value.toFixed(value < 10 ? 2 : 1)} ms`;
+
+    function formatStatusCounts(counts) {
+        return Object.entries(counts)
+            .sort(([left], [right]) => left.localeCompare(right, undefined, { numeric: true }))
+            .map(([status, count]) => `${status === 'network_error' ? 'Network' : `HTTP ${status}`}: ${count}`)
+            .join(' · ') || '—';
+    }
 
     function renderReport(report) {
         $('requestsPerSecond').textContent = report.requests_per_second.toFixed(1);
@@ -161,11 +196,13 @@
         $('throughput').textContent = report.throughput_mib_per_second.toFixed(2);
         $('totalDuration').textContent = `${(report.duration_ms / 1000).toFixed(2)} giây`;
         $('failedRequests').textContent = report.failed.toLocaleString('vi-VN');
+        $('attemptedRequestsPerSecond').textContent = report.attempted_requests_per_second.toFixed(1);
+        $('httpStatusCounts').textContent = formatStatusCounts(report.status_counts);
         $('minLatency').textContent = formatMs(report.latency_ms.min);
         $('maxLatency').textContent = formatMs(report.latency_ms.max);
         $('p50Latency').textContent = formatMs(report.latency_ms.p50);
-        $('serverAverage').textContent = report.average_php_time_ms === null
-            ? 'Không áp dụng' : formatMs(report.average_php_time_ms);
+        $('serverAverage').textContent = report.average_php_workload_time_ms === null
+            ? 'Không áp dụng' : formatMs(report.average_php_workload_time_ms);
         $('transferredBytes').textContent = `${(report.transferred_bytes / 1048576).toFixed(2)} MiB`;
         $('usedConcurrency').textContent = String(report.concurrency);
         $('chartLegend').textContent = `P50 ${formatMs(report.latency_ms.p50)} · P95 ${formatMs(report.latency_ms.p95)}`;
@@ -229,11 +266,14 @@
                     if (index >= total) return;
                     let counted = false;
                     try {
-                        results.push(await issueRequest(requestUrl(currentProfile, intensity, payloadBytes, index), controller.signal));
+                        const result = await issueRequest(
+                            requestUrl(currentProfile, intensity, payloadBytes, index), controller.signal);
+                        results.push(result);
+                        if (!result.ok) errors++;
                         counted = true;
                     } catch (error) {
                         if (error.name === 'AbortError') return;
-                        errors++; counted = true;
+                        throw error;
                     } finally {
                         if (counted) {
                             completed++;
@@ -247,7 +287,7 @@
             }
 
             await Promise.all(Array.from({ length: concurrency }, worker));
-            lastReport = summarize(total, concurrency, performance.now() - startedAt, results, errors, controller.signal.aborted);
+            lastReport = summarize(total, concurrency, performance.now() - startedAt, results, controller.signal.aborted);
             renderReport(lastReport);
             controls.progressLabel.textContent = controller.signal.aborted ? 'Đã dừng · kết quả một phần' : 'Hoàn tất';
         } catch (error) {

@@ -18,6 +18,6 @@ header('Content-Type: application/octet-stream');
 header('Content-Length: ' . $size);
 header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
 header('X-Content-Type-Options: nosniff');
-header('Server-Timing: php;dur=' . $formattedTime);
-header('X-Benchmark-Time-Ms: ' . $formattedTime);
+header('Server-Timing: php-workload;dur=' . $formattedTime);
+header('X-Benchmark-Workload-Time-Ms: ' . $formattedTime);
 echo $payload;

@@ -51,4 +51,33 @@ public sealed class LogEntryFormatterTests
         Assert.AreEqual(text, segment.Text);
         Assert.AreEqual(LogSegmentKind.Normal, segment.Kind);
     }
+
+    [TestMethod]
+    public void ParseSpans_ReferencesOriginalTextWithoutChangingContent()
+    {
+        const string text = "[10:20:30] [PHP] Listening at localhost:9000";
+
+        var spans = LogEntryFormatter.ParseSpans(text);
+
+        Assert.AreEqual(text, string.Concat(spans.Select(span => text.Substring(span.Start, span.Length))));
+        Assert.IsTrue(spans.Any(span => span.Kind == LogSegmentKind.Timestamp));
+        Assert.IsTrue(spans.Any(span => span.Kind == LogSegmentKind.Php));
+        Assert.IsTrue(spans.Any(span => span.Kind == LogSegmentKind.Link));
+    }
+
+    [TestMethod]
+    public void NormalizeForDisplay_KeepsSemanticOffsetsAlignedAcrossCrLfLines()
+    {
+        const string text = "[10:20:30] [Apache] first\r\n[10:20:31] [WARN] second";
+
+        var normalized = LogEntryFormatter.NormalizeForDisplay(text);
+        var spans = LogEntryFormatter.ParseSpans(normalized);
+
+        Assert.DoesNotContain('\r', normalized);
+        Assert.AreEqual(text.ReplaceLineEndings("\n"), normalized);
+        Assert.AreEqual(
+            normalized,
+            string.Concat(spans.Select(span => normalized.Substring(span.Start, span.Length))));
+        Assert.IsTrue(spans.All(span => span.Start >= 0 && span.Start + span.Length <= normalized.Length));
+    }
 }
