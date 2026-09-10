@@ -256,7 +256,7 @@ public class ApacheConfigWriter
             sb.AppendLine("    ExpiresByType application/font-woff2 \"access plus 1 year\"");
             sb.AppendLine("    ExpiresByType text/css             \"access plus 1 week\"");
             sb.AppendLine("    ExpiresByType application/javascript \"access plus 1 week\"");
-            sb.AppendLine("    ExpiresDefault                     \"access plus 2 days\"");
+            sb.AppendLine("    ExpiresByType text/javascript      \"access plus 1 week\"");
             sb.AppendLine("</IfModule>");
             sb.AppendLine();
         }
