@@ -129,3 +129,8 @@ Security vulnerabilities must be reported privately according to
 Hamster Server source code is available under the [MIT License](LICENSE).
 Bundled Apache, PHP, and related runtime components retain their respective
 upstream licenses; see [THIRD_PARTY_RUNTIMES.md](THIRD_PARTY_RUNTIMES.md).
+
+## Sponsorship
+
+If Hamster Server helps your development workflow, you can support its ongoing
+maintenance through [GitHub Sponsors](https://github.com/sponsors/cmm-cmm).
