@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Support and questions
+    url: https://github.com/cmm-cmm/Hamster-Server/discussions
+    about: Ask setup and usage questions in GitHub Discussions.
+  - name: Private security report
+    url: https://github.com/cmm-cmm/Hamster-Server/security/advisories/new
+    about: Report vulnerabilities privately. Do not open a public issue.
