@@ -1,0 +1,75 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <RuntimeFrameworkVersion>10.0.11</RuntimeFrameworkVersion>
+    <RollForward>LatestPatch</RollForward>
+    <Nullable>enable</Nullable>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>HamsterServer</AssemblyName>
+    <RootNamespace>HamsterServer</RootNamespace>
+    <ApplicationIcon>server.ico</ApplicationIcon>
+
+    <!-- Every form uses AutoScaleMode.Font, so the layout follows a scale change; without this
+         the window is stretched by the OS (blurry) when moved to a differently scaled monitor. -->
+    <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
+
+    <!-- Product metadata -->
+    <Product>Hamster Server</Product>
+    <AssemblyTitle>Hamster Server — Local Apache + PHP Dev Server</AssemblyTitle>
+    <Version>1.1.0</Version>
+    <Company>Hamster Server</Company>
+    <Copyright>Copyright © Hamster Server</Copyright>
+
+    <!-- Desktop app: workstation concurrent GC = lower latency + smaller footprint -->
+    <ServerGarbageCollection>false</ServerGarbageCollection>
+    <ConcurrentGarbageCollection>true</ConcurrentGarbageCollection>
+
+    <!-- Smaller output: no localization satellites we don't ship -->
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <Optimize>true</Optimize>
+    <DebugType>embedded</DebugType>
+    <DebugSymbols>true</DebugSymbols>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Content Include="apache\**\*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="config\**\*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="php\**\*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="..\ssl\**\*" Link="ssl\%(RecursiveDir)%(Filename)%(Extension)">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
+    <Content Include="www\**\*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="server.ico" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Update="HamsterServerForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Update="HamsterServerForm.Designer.cs">
+      <DependentUpon>HamsterServerForm.cs</DependentUpon>
+    </Compile>
+    <EmbeddedResource Update="HamsterServerForm.resx">
+      <DependentUpon>HamsterServerForm.cs</DependentUpon>
+    </EmbeddedResource>
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="HamsterServer/HamsterServer.csproj" />
+  <Project Path="HamsterServer.Tests/HamsterServer.Tests.csproj" />
+</Solution>
