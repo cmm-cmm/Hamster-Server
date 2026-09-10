@@ -64,6 +64,32 @@ public sealed class ApacheConfigWriterTests
     }
 
     [TestMethod]
+    public void WritePhpIni_RegeneratesCurrentSchemaAfterPortableRootMoves()
+    {
+        using var root = new TestDirectory();
+        var oldRoot = Path.Combine(root.Path, "old-location");
+        var newRoot = Path.Combine(root.Path, "new-location");
+        var oldPhpDir = Path.Combine(oldRoot, "php", "8.5.10");
+        var newPhpDir = Path.Combine(newRoot, "php", "8.5.10");
+        Directory.CreateDirectory(oldPhpDir);
+        Directory.CreateDirectory(newPhpDir);
+
+        new ApacheConfigWriter(oldRoot, new AppConfig()).WritePhpIni(
+            oldPhpDir, Path.Combine(oldRoot, "config"));
+        File.Copy(Path.Combine(oldPhpDir, "php.ini"), Path.Combine(newPhpDir, "php.ini"));
+
+        new ApacheConfigWriter(newRoot, new AppConfig()).WritePhpIni(
+            newPhpDir, Path.Combine(newRoot, "config"));
+
+        var text = File.ReadAllText(Path.Combine(newPhpDir, "php.ini"));
+        var expectedExtDir = Path.Combine(newPhpDir, "ext").Replace('\\', '/');
+        var expectedLogDir = Path.Combine(newRoot, "config", "logs").Replace('\\', '/');
+        StringAssert.Contains(text, $"extension_dir = \"{expectedExtDir}\"");
+        StringAssert.Contains(text, $"error_log                = \"{expectedLogDir}/php_error.log\"");
+        Assert.IsFalse(text.Contains(oldRoot.Replace('\\', '/'), StringComparison.OrdinalIgnoreCase));
+    }
+
+    [TestMethod]
     public void WritePhpIni_PreservesCustomFileWithoutHamsterServerHeader()
     {
         using var root = new TestDirectory();

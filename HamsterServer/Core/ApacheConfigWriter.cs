@@ -323,21 +323,25 @@ public class ApacheConfigWriter
     public void WritePhpIni(string phpDir, string configDir, bool forceRegenerate = false)
     {
         var phpIniPath = Path.Combine(phpDir, "php.ini");
+        var extDir = P(Path.Combine(phpDir, "ext"));
         if (File.Exists(phpIniPath) && !forceRegenerate)
         {
-            var headerLines = File.ReadLines(phpIniPath).Take(8).ToArray();
-            if (headerLines.Contains(PhpIniSchemaMarker, StringComparer.Ordinal) ||
-                (!headerLines.Contains(PhpIniGeneratedHeader, StringComparer.Ordinal) &&
-                 !headerLines.Contains(LegacyPhpIniGeneratedHeader, StringComparer.Ordinal)))
-            {
+            var lines = File.ReadAllLines(phpIniPath);
+            var headerLines = lines.Take(8).ToArray();
+            bool isGenerated = headerLines.Contains(PhpIniGeneratedHeader, StringComparer.Ordinal) ||
+                               headerLines.Contains(LegacyPhpIniGeneratedHeader, StringComparer.Ordinal);
+            if (!isGenerated)
                 return;
-            }
+
+            // Generated php.ini files contain absolute Windows paths. Rebuild a current-schema
+            // file after the portable server folder is copied or moved to another location.
+            bool isCurrentSchema = headerLines.Contains(PhpIniSchemaMarker, StringComparer.Ordinal);
+            if (isCurrentSchema && UsesExtensionDirectory(lines, extDir)) return;
         }
 
         bool isProd = _config.ServerMode == ServerMode.Production;
         var logsPath = P(Path.Combine(configDir, "logs"));
         var tmpPath = P(Path.GetTempPath().TrimEnd('\\', '/'));
-        var extDir = P(Path.Combine(phpDir, "ext"));
         var caCertificatePath = P(Path.GetFullPath(Path.Combine(_rootDir, "ssl", "cacert.pem")));
         var caCertificateSettings = _config.Php.UseBundledCaCertificate
             ? $@"
@@ -436,6 +440,23 @@ session.cookie_httponly = 1
 session.gc_maxlifetime  = 1440
 ";
         File.WriteAllText(phpIniPath, content);
+    }
+
+    private static bool UsesExtensionDirectory(IEnumerable<string> lines, string expectedPath)
+    {
+        foreach (var line in lines)
+        {
+            var trimmed = line.Trim();
+            if (trimmed.StartsWith(';') || !trimmed.StartsWith("extension_dir", StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            int separator = trimmed.IndexOf('=');
+            if (separator < 0) return false;
+            var value = trimmed[(separator + 1)..].Trim().Trim('"', '\'').Replace('\\', '/').TrimEnd('/');
+            return value.Equals(expectedPath.TrimEnd('/'), StringComparison.OrdinalIgnoreCase);
+        }
+
+        return false;
     }
 
     // ─── VHost files ──────────────────────────────────────────────────────────
