@@ -322,7 +322,7 @@ partial class HamsterServerForm
         // mnuHelpAbout
         // 
         mnuHelpAbout.Name = "mnuHelpAbout";
-        mnuHelpAbout.Size = new Size(149, 22);
+        mnuHelpAbout.Size = new Size(190, 22);
         mnuHelpAbout.Text = "&About Hamster Server";
         mnuHelpAbout.Click += mnuHelpAbout_Click;
         // 
