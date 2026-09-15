@@ -1,4 +1,4 @@
-# Hamster Server Performance Lab
+# XServer Performance Lab
 
 Ứng dụng PHP thuần hiển thị thông tin server, PHP, toàn bộ extension đang nạp và đo hiệu suất Apache/FastCGI/PHP của Hamster Server. Mỗi workload có một tab chuyên biệt. Project không dùng Composer, framework, database hoặc dịch vụ bên ngoài.
 

@@ -304,7 +304,7 @@
         delete data.samples_ms;
         const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
         const link = document.createElement('a');
-        link.href = url; link.download = `hamster-server-${lastReport.profile}-${Date.now()}.json`; link.click();
+        link.href = url; link.download = `xserver-${lastReport.profile}-${Date.now()}.json`; link.click();
         URL.revokeObjectURL(url);
     }
 

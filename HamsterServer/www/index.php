@@ -51,14 +51,14 @@ $tests = [
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="color-scheme" content="dark">
-    <title>Hamster Server Performance Lab</title>
+    <title>XServer Performance Lab</title>
     <link rel="stylesheet" href="assets/style.css">
     <script src="assets/app.js" defer></script>
 </head>
 <body>
     <header class="hero">
         <div>
-            <div class="brand"><span class="brand__mark">XS</span> Hamster Server Performance Lab</div>
+            <div class="brand"><span class="brand__mark">XS</span> XServer Performance Lab</div>
             <h1>Server overview &amp;<br><span>PHP benchmark</span></h1>
             <p>Kiểm tra cấu hình runtime, extension và hiệu suất Apache + PHP ngay trên trình duyệt. Không dùng framework hoặc dịch vụ bên ngoài.</p>
         </div>
@@ -161,6 +161,6 @@ $tests = [
 
         <p class="safety-note">Benchmark có chủ đích tạo tải. Không chọn concurrency cao khi các website quan trọng đang hoạt động.</p>
     </main>
-    <footer><span>Hamster Server Performance Lab</span><span>Plain PHP · No Composer · No external requests</span></footer>
+    <footer><span>XServer Performance Lab</span><span>Plain PHP · No Composer · No external requests</span></footer>
 </body>
 </html>
