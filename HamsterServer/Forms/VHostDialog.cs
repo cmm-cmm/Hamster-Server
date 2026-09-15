@@ -40,6 +40,11 @@ public partial class VHostDialog : Form
         _tt.SetToolTip(cmbFramework, "Choose a PHP framework — adjusts Apache config and doc root suggestion");
         _tt.SetToolTip(btnBrowse, "Browse for the document root folder");
 
+        // Action button only; Browse… / OK / Cancel stay bare like any dialog button. No AutoSize:
+        // this one is anchored Left|Right so it lines up with the controls in the rows above, and
+        // AutoSize would collapse it to its text width — the cell was widened instead.
+        UiTheme.ApplyGlyph(btnEnableExtensions, UiTheme.Glyph.Accept, UiTheme.AccentAction, autoSize: false);
+
         if (existing != null)
         {
             Text = "Edit Virtual Host";

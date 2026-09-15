@@ -302,7 +302,7 @@ partial class VHostDialog
         //
         tblProfile.ColumnCount = 2;
         tblProfile.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-        tblProfile.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 142F));
+        tblProfile.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 168F));
         tblProfile.Controls.Add(lblProfileDescription, 0, 0);
         tblProfile.Controls.Add(lblProfileRules, 0, 1);
         tblProfile.Controls.Add(lblProfileStatus, 0, 2);
@@ -353,7 +353,7 @@ partial class VHostDialog
         btnEnableExtensions.Anchor = AnchorStyles.Left | AnchorStyles.Right;
         btnEnableExtensions.Location = new Point(389, 66);
         btnEnableExtensions.Name = "btnEnableExtensions";
-        btnEnableExtensions.Size = new Size(136, 27);
+        btnEnableExtensions.Size = new Size(162, 27);
         btnEnableExtensions.TabIndex = 3;
         btnEnableExtensions.Text = "Enable extensions";
         btnEnableExtensions.UseVisualStyleBackColor = true;
