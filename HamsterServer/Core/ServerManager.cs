@@ -32,6 +32,26 @@ public class ServerManager : IDisposable
     private const int PhpAutoRestartWindowSec = 120;
     private const int PhpAutoRestartDelayMs = 2000;
 
+    // Memory watchdog: with MaxRequests = 0 nothing recycles workers, so leaked memory is only
+    // reclaimed by restarting the pool. Sweeps on a timer, and only acts while the pool is idle.
+    // System.Threading.Timer, not the WinForms one: Core has no UI thread to marshal to, and the
+    // sweep deliberately runs off the UI thread because it enumerates processes.
+    private System.Threading.Timer? _phpMemoryTimer;
+    private int _phpMemorySweepRunning;          // 0/1 guard against overlapping timer callbacks
+    private int _phpMemorySweepSeconds;          // current timer period, for RescheduleSweep
+    private int _phpMemoryMissedWindows;         // consecutive checks that never caught an idle gap
+    private DateTime _lastPhpMemoryRestart = DateTime.MinValue;
+    private int _phpMemoryRestartCount;
+    private DateTime _phpMemoryWindowStart = DateTime.MinValue;
+    private const int PhpMemorySweepIntervalSec = 60;
+    private const int PhpMemorySweepBusyIntervalSec = 15;  // within 80% of the threshold
+    private const int PhpMemoryIdleWaitSec = 300;     // give the pool this long to fall quiet
+    private const int PhpMemoryIdlePollMs = 250;
+    private const int PhpMemoryCooldownMin = 10;      // settle time after a successful restart
+    private const int MaxPhpMemoryRestarts = 3;       // per window, before the feature backs off
+    private const int PhpMemoryRestartWindowMin = 60;
+    private const int MaxMissedWindowsBeforeWarning = 3;
+
     // Paths cached so stop/dispose can find surviving child processes
     private string? _httpdExePath;
     private string? _phpCgiPath;
@@ -586,6 +606,7 @@ public class ServerManager : IDisposable
             SetPhp(ServerStatus.Running);
             Log($"[OK] PHP {Config.Php.CurrentVersion} FastCGI started " +
                 $"(Workers: {Config.Php.Workers}, MaxReq: {Config.Php.MaxRequests})");
+            StartPhpMemoryWatchdog();
         }
         else
         {
@@ -606,6 +627,7 @@ public class ServerManager : IDisposable
 
     private async Task StopPhpCoreAsync()
     {
+        StopPhpMemoryWatchdog();
         if (!IsPhpRunning)
         {
             _phpProcess?.Dispose();
@@ -709,6 +731,207 @@ public class ServerManager : IDisposable
             _phpRestartCts?.Cancel();
             _phpRestartCts?.Dispose();
             _phpRestartCts = null;
+        }
+    }
+
+    // ─── Memory watchdog ─────────────────────────────────────────────────────
+    //
+    // Php.MaxRequests = 0 is what makes FastCGI connection pooling safe (see ApacheConfigWriter),
+    // but it also means a worker never exits on its own, so anything a script or extension leaks
+    // stays for the life of the server. This replaces "recycle every N requests" with "recycle
+    // when the pool actually got fat", and only while nothing is in flight, so no request is cut.
+
+    private void StartPhpMemoryWatchdog()
+    {
+        StopPhpMemoryWatchdog();
+        if (Config.Php.MemoryRestartThreshold <= 0) return;
+
+        _phpMemorySweepSeconds = PhpMemorySweepIntervalSec;
+        _phpMemoryMissedWindows = 0;
+        var period = TimeSpan.FromSeconds(PhpMemorySweepIntervalSec);
+        _phpMemoryTimer = new System.Threading.Timer(
+            _ => _ = SweepPhpMemoryAsync(), null, period, period);
+    }
+
+    private void StopPhpMemoryWatchdog()
+    {
+        var timer = Interlocked.Exchange(ref _phpMemoryTimer, null);
+        timer?.Dispose();
+    }
+
+    private async Task SweepPhpMemoryAsync()
+    {
+        // Timer callbacks can overlap when a sweep spends minutes waiting for the pool to fall
+        // idle; only one may be in flight.
+        if (Interlocked.CompareExchange(ref _phpMemorySweepRunning, 1, 0) != 0) return;
+        try
+        {
+            int thresholdMb = Config.Php.MemoryRestartThreshold;
+            if (_disposed || thresholdMb <= 0 || !_phpDesiredRunning || !IsPhpRunning) return;
+            if ((DateTime.UtcNow - _lastPhpMemoryRestart).TotalMinutes < PhpMemoryCooldownMin) return;
+
+            long usedBytes = await Task.Run(GetPhpPoolWorkingSetBytes);
+            long usedMb = usedBytes / 1024 / 1024;
+            RescheduleSweep(usedMb, thresholdMb);
+
+            if (usedMb < thresholdMb)
+            {
+                _phpMemoryMissedWindows = 0;
+                return;
+            }
+
+            if (!IsPhpMemoryRestartAllowed(usedMb, thresholdMb)) return;
+
+            Log($"[WARN] PHP pool is using {usedMb} MB (threshold {thresholdMb} MB) — " +
+                $"waiting for it to go idle before restarting…");
+
+            if (!await WaitForPhpPoolIdleAsync())
+            {
+                ReportMissedRestartWindow(usedMb, thresholdMb);
+                return;
+            }
+
+            if (await RestartPhpPoolForMemoryAsync(usedMb))
+                RecordPhpMemoryRestart();
+        }
+        catch (Exception ex)
+        {
+            Log($"[WARN] PHP memory check failed: {ex.Message}");
+        }
+        finally
+        {
+            Volatile.Write(ref _phpMemorySweepRunning, 0);
+        }
+    }
+
+    /// <summary>
+    /// Tightens the sweep interval as the pool approaches the threshold, so the moment it crosses
+    /// is noticed in seconds rather than up to a minute — and relaxes it again afterwards. The
+    /// sweep itself only enumerates processes, so the faster cadence costs close to nothing.
+    /// </summary>
+    private void RescheduleSweep(long usedMb, int thresholdMb)
+    {
+        int seconds = usedMb >= thresholdMb * 0.8
+            ? PhpMemorySweepBusyIntervalSec
+            : PhpMemorySweepIntervalSec;
+        if (seconds == _phpMemorySweepSeconds) return;
+
+        var timer = _phpMemoryTimer;
+        if (timer is null) return;
+        try
+        {
+            var period = TimeSpan.FromSeconds(seconds);
+            timer.Change(period, period);
+            _phpMemorySweepSeconds = seconds;
+        }
+        catch (ObjectDisposedException) { /* watchdog stopped while we were sweeping */ }
+    }
+
+    /// <summary>
+    /// Rate-limits the feature. A threshold set below what the pool uses at rest would otherwise
+    /// restart it forever, so after <see cref="MaxPhpMemoryRestarts"/> restarts in one window the
+    /// watchdog stops and says what to change instead of thrashing the server.
+    /// <para>
+    /// Only actual restarts count, which is why this is a read and <see cref="RecordPhpMemoryRestart"/>
+    /// is the write: charging the budget up front meant a pool that merely stayed busy exhausted it
+    /// without ever being recycled, and the watchdog then switched itself off for an hour.
+    /// </para>
+    /// </summary>
+    private bool IsPhpMemoryRestartAllowed(long usedMb, int thresholdMb)
+    {
+        lock (_phpCrashLock)
+        {
+            var now = DateTime.UtcNow;
+            if ((now - _phpMemoryWindowStart).TotalMinutes > PhpMemoryRestartWindowMin)
+            {
+                _phpMemoryRestartCount = 0;
+                _phpMemoryWindowStart = now;
+            }
+
+            if (_phpMemoryRestartCount < MaxPhpMemoryRestarts) return true;
+
+            Log($"[ERROR] PHP pool hit the {thresholdMb} MB threshold {MaxPhpMemoryRestarts} times " +
+                $"in {PhpMemoryRestartWindowMin} minutes (now {usedMb} MB). Memory-based restarts " +
+                "are paused — raise Settings → PHP → \"Restart pool above\", or lower Workers.");
+            StopPhpMemoryWatchdog();
+            return false;
+        }
+    }
+
+    private void RecordPhpMemoryRestart()
+    {
+        lock (_phpCrashLock)
+        {
+            if (_phpMemoryWindowStart == DateTime.MinValue) _phpMemoryWindowStart = DateTime.UtcNow;
+            _phpMemoryRestartCount++;
+        }
+        _phpMemoryMissedWindows = 0;
+    }
+
+    /// <summary>
+    /// The pool never fell quiet inside the wait window. That is not an error — refusing to cut a
+    /// live request is the whole policy — but if it keeps happening the memory is never reclaimed,
+    /// so say so plainly instead of leaving an INFO line nobody reads.
+    /// </summary>
+    private void ReportMissedRestartWindow(long usedMb, int thresholdMb)
+    {
+        int missed = ++_phpMemoryMissedWindows;
+        if (missed < MaxMissedWindowsBeforeWarning)
+        {
+            Log($"[INFO] PHP pool stayed busy for {PhpMemoryIdleWaitSec / 60} minutes at {usedMb} MB — " +
+                "leaving it alone and rechecking later.");
+            return;
+        }
+
+        Log($"[WARN] PHP pool has been above the {thresholdMb} MB threshold for {missed} checks " +
+            $"(now {usedMb} MB) and never went idle long enough to recycle. Traffic has not paused — " +
+            "restart PHP from the Service menu at a convenient moment, or raise the threshold.");
+    }
+
+    private async Task<bool> WaitForPhpPoolIdleAsync()
+    {
+        // Polled tightly rather than every few seconds: even a machine under steady load has gaps
+        // between requests, and a 5 s poll walked straight past them. Each poll is one loopback
+        // request to mod_status, so four per second is noise next to the traffic it is watching.
+        var deadline = DateTime.UtcNow.AddSeconds(PhpMemoryIdleWaitSec);
+        while (DateTime.UtcNow < deadline)
+        {
+            if (_disposed || !_phpDesiredRunning || !IsPhpRunning) return false;
+            if (await IsPhpPoolIdleAsync()) return true;
+            await Task.Delay(PhpMemoryIdlePollMs);
+        }
+        return false;
+    }
+
+    /// <summary>Returns true only when the pool was actually recycled.</summary>
+    private async Task<bool> RestartPhpPoolForMemoryAsync(long usedMb)
+    {
+        await _phpGate.WaitAsync();
+        try
+        {
+            // Re-check under the gate: the user may have stopped PHP while we waited for idle.
+            if (_disposed || !_phpDesiredRunning || !IsPhpRunning) return false;
+
+            // One last look — a request can arrive between the idle check and taking the gate.
+            if (!await IsPhpPoolIdleAsync())
+            {
+                Log("[INFO] PHP pool became busy again — postponing the memory restart.");
+                return false;
+            }
+
+            Log($"Recycling the PHP pool to release {usedMb} MB…");
+            await StopPhpCoreAsync();
+            await Task.Delay(DelayRestartPauseMs);
+            await StartPhpCoreAsync();
+            _lastPhpMemoryRestart = DateTime.UtcNow;
+
+            long afterMb = GetPhpPoolWorkingSetBytes() / 1024 / 1024;
+            Log($"[OK] PHP pool recycled — memory is now {afterMb} MB (was {usedMb} MB).");
+            return true;
+        }
+        finally
+        {
+            _phpGate.Release();
         }
     }
 
@@ -848,6 +1071,82 @@ public class ServerManager : IDisposable
         }
     }
 
+    /// <summary>
+    /// Total working set of every php-cgi process belonging to this installation, in bytes, or 0
+    /// when PHP is not running. Counts the whole pool, not just the tracked parent: the parent is
+    /// a supervisor and the memory that actually accumulates lives in the worker children.
+    /// </summary>
+    public long GetPhpPoolWorkingSetBytes() =>
+        _phpCgiPath is null ? 0 : SumWorkingSetFromPath("php-cgi", _phpCgiPath);
+
+    /// <summary>
+    /// True when Apache is not serving any request, so recycling the PHP pool cannot cut one in
+    /// half. Reads <c>BusyWorkers</c> from mod_status on the loopback interface.
+    /// <para>
+    /// Counting TCP connections to the FastCGI port does NOT work here, which is worth recording:
+    /// <c>ttl=15</c> only discards a pooled connection when Apache goes to reuse it, there is no
+    /// background reaper, so with <c>enablereuse=on</c> the sockets sit ESTABLISHED indefinitely
+    /// whether or not a request is on them. A pool that had ever served traffic would then never
+    /// look idle and the memory restart would never fire.
+    /// </para>
+    /// </summary>
+    public async Task<bool> IsPhpPoolIdleAsync()
+    {
+        // Nothing can reach php-cgi while Apache is down, so the pool is trivially idle.
+        if (!IsApacheRunning) return true;
+
+        int busy = await GetApacheBusyWorkersAsync();
+        // Unreadable status: assume busy rather than recycle on top of live requests.
+        // The poll itself occupies one worker, hence <= 1 rather than == 0.
+        return busy >= 0 && busy <= 1;
+    }
+
+    private static readonly HttpClient StatusClient = new() { Timeout = TimeSpan.FromSeconds(3) };
+
+    /// <summary>Number of Apache workers currently serving a request, or -1 when unreadable.</summary>
+    private async Task<int> GetApacheBusyWorkersAsync()
+    {
+        try
+        {
+            var url = $"http://127.0.0.1:{Config.Apache.Port}/server-status?auto";
+            var body = await StatusClient.GetStringAsync(url);
+            foreach (var line in body.Split('\n'))
+            {
+                if (!line.StartsWith("BusyWorkers:", StringComparison.OrdinalIgnoreCase)) continue;
+                return int.TryParse(line.AsSpan("BusyWorkers:".Length).Trim(), out int busy) ? busy : -1;
+            }
+            return -1;
+        }
+        catch
+        {
+            return -1;
+        }
+    }
+
+    private static long SumWorkingSetFromPath(string processName, string exePath)
+    {
+        string target;
+        try { target = Path.GetFullPath(exePath).ToLowerInvariant(); }
+        catch { return 0; }
+
+        long total = 0;
+        foreach (var proc in Process.GetProcessesByName(processName))
+        {
+            using (proc)
+            {
+                try
+                {
+                    var actual = TryGetProcessImagePath(proc.Id);
+                    if (actual is null) continue;
+                    if (!string.Equals(actual, target, StringComparison.OrdinalIgnoreCase)) continue;
+                    total += proc.WorkingSet64;
+                }
+                catch { /* exited between enumeration and read */ }
+            }
+        }
+        return total;
+    }
+
     private const int ProcessQueryLimitedInformation = 0x1000;
 
     [DllImport("kernel32.dll", SetLastError = true)]
@@ -975,6 +1274,7 @@ public class ServerManager : IDisposable
             _disposed = true;
             _phpDesiredRunning = false;
             CancelPendingPhpRestart();
+            StopPhpMemoryWatchdog();
 
             // Signal watchdog not to restart after we kill the processes
             _apacheStopRequested = true;
@@ -999,6 +1299,23 @@ public class ServerManager : IDisposable
     }
 
     // ─── Settings invalidation ────────────────────────────────────────────────
+
+    /// <summary>
+    /// Re-reads <see cref="PhpSettings.MemoryRestartThreshold"/> after the settings dialog saved.
+    /// Changing the threshold does not warrant bouncing PHP, and editing it is also how the user
+    /// answers a "restarts are paused" message, so the rate-limit window starts over here.
+    /// </summary>
+    public void ApplyPhpMemorySettings()
+    {
+        lock (_phpCrashLock)
+        {
+            _phpMemoryRestartCount = 0;
+            _phpMemoryWindowStart = DateTime.UtcNow;
+        }
+
+        if (!_disposed && _phpDesiredRunning && IsPhpRunning) StartPhpMemoryWatchdog();
+        else StopPhpMemoryWatchdog();
+    }
 
     public void SynchronizePhpIni()
     {

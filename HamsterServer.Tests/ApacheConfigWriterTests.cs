@@ -279,4 +279,75 @@ public sealed class ApacheConfigWriterTests
     [DataRow("", false)]
     public void IsValidServerName_ValidatesDnsTokens(string value, bool expected) =>
         Assert.AreEqual(expected, ApacheConfigWriter.IsValidServerName(value));
+
+    // ── FastCGI connection pooling ───────────────────────────────────────────
+    // `max` must track Php.Workers: left at its mod_proxy default of ThreadsPerChild (256) the
+    // pool fills with connections no php-cgi child is serving and requests die on AH01075.
+    [DataTestMethod]
+    [DataRow(4)]
+    [DataRow(8)]
+    [DataRow(32)]
+    public void WriteAllVHosts_PinsFcgiPoolSizeToWorkerCount(int workers)
+    {
+        using var root = new TestDirectory();
+        var config = new AppConfig();
+        config.Php.Workers = workers;
+        config.Php.MaxRequests = 0;
+        var vhostDir = Path.Combine(root.Path, "config", "vhosts");
+
+        new ApacheConfigWriter(root.Path, config).WriteAllVHosts(vhostDir);
+
+        var text = File.ReadAllText(Path.Combine(vhostDir, "00-default.conf"));
+        StringAssert.Contains(text, $"enablereuse=on max={workers} ttl=15");
+    }
+
+    [TestMethod]
+    public void WriteAllVHosts_EnablesFcgiReuseWhenWorkersNeverRecycle()
+    {
+        using var root = new TestDirectory();
+        var config = new AppConfig
+        {
+            VHosts = [new VHostEntry { ServerName = "app.test", DocumentRoot = root.Path }]
+        };
+        config.Php.Workers = 8;
+        config.Php.MaxRequests = 0;
+        var vhostDir = Path.Combine(root.Path, "config", "vhosts");
+
+        new ApacheConfigWriter(root.Path, config).WriteAllVHosts(vhostDir);
+
+        // Both generators emit ProxyPassMatch, and they are separate code paths.
+        foreach (var file in Directory.GetFiles(vhostDir, "*.conf"))
+            StringAssert.Contains(File.ReadAllText(file), "enablereuse=on max=8 ttl=15",
+                $"{Path.GetFileName(file)} should pool FastCGI connections.");
+    }
+
+    // Recycling a worker closes a connection Apache may be reusing, which surfaced as rare HTTP 503
+    // (AH01067 / AH01075 / Windows 10054). Whoever opts back into recycling must get Apache's
+    // no-pooling default instead — see doc/PERFORMANCE_EVALUATION.md.
+    [TestMethod]
+    public void WriteAllVHosts_OmitsFcgiReuseWhenWorkerRecyclingIsEnabled()
+    {
+        using var root = new TestDirectory();
+        var config = new AppConfig
+        {
+            VHosts = [new VHostEntry { ServerName = "app.test", DocumentRoot = root.Path }]
+        };
+        config.Php.Workers = 8;
+        config.Php.MaxRequests = 5000;
+        var vhostDir = Path.Combine(root.Path, "config", "vhosts");
+
+        new ApacheConfigWriter(root.Path, config).WriteAllVHosts(vhostDir);
+
+        foreach (var file in Directory.GetFiles(vhostDir, "*.conf"))
+        {
+            var text = File.ReadAllText(file);
+            var name = Path.GetFileName(file);
+            Assert.IsFalse(text.Contains("enablereuse", StringComparison.Ordinal),
+                $"{name} should not pool FastCGI connections while workers recycle.");
+            // The directive must still be well-formed, with no dangling separator.
+            Assert.IsFalse(text.ReplaceLineEndings("\n").Split('\n')
+                    .Any(line => line.TrimEnd() != line && line.Contains("ProxyPassMatch", StringComparison.Ordinal)),
+                $"{name} left trailing whitespace on a ProxyPassMatch line.");
+        }
+    }
 }

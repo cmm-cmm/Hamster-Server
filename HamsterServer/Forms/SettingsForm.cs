@@ -29,7 +29,20 @@ public partial class SettingsForm : Form
         UpdateSslCertVisibility();
         UpdateOpcacheVisibility();
         UpdateRiskHighlights();
+        InitIcons();
         InitTooltips();
+    }
+
+    /// <summary>
+    /// Only the action buttons get a glyph. OK / Cancel / Browse… stay bare because Windows
+    /// dialog buttons do not carry icons.
+    /// </summary>
+    private void InitIcons()
+    {
+        UiTheme.ApplyGlyph(btnRecommendedExtensions, UiTheme.Glyph.Star, UiTheme.AccentAction);
+        UiTheme.ApplyGlyph(btnCheckAll, UiTheme.Glyph.SelectAll, UiTheme.AccentAction);
+        UiTheme.ApplyGlyph(btnUncheckAll, UiTheme.Glyph.ClearSelection, UiTheme.AccentNeutral);
+        UiTheme.ApplyGlyph(btnApplyModeDefaults, UiTheme.Glyph.Wrench, UiTheme.AccentNeutral);
     }
 
     /// <summary>
@@ -73,8 +86,9 @@ public partial class SettingsForm : Form
         tt.SetToolTip(chkGzip, "Compress text responses (HTML, CSS, JS) to reduce bandwidth.");
         tt.SetToolTip(chkCache, "Send Expires headers so browsers cache static assets locally.");
         tt.SetToolTip(chkBrotli, "Brotli compression (15-25% smaller than Gzip). Requires mod_brotli.so in apache/Apache24/modules/.");
-        tt.SetToolTip(nudWorkers, "PHP-CGI worker processes. Start with CPU count × 2.");
-        tt.SetToolTip(nudMaxRequests, "Workers restart after this many requests (prevents memory leaks).");
+        tt.SetToolTip(nudWorkers, "PHP-CGI worker processes. Each costs ~35 MB; 4-8 already saturates a dev machine.");
+        tt.SetToolTip(nudMaxRequests, "Requests before a worker recycles. 0 = never recycle (required for FastCGI connection reuse).");
+        tt.SetToolTip(nudMemoryRestart, "Restart the whole PHP pool once it uses this much memory, and only while it is idle. 0 = never.");
         tt.SetToolTip(cboTimezone, "PHP date.timezone using an IANA identifier.");
         tt.SetToolTip(chkUseBundledCaCertificate,
             $"Configure cURL and OpenSSL to use {Path.Combine(_rootDir, "ssl", "cacert.pem")} for HTTPS requests.");
@@ -320,6 +334,7 @@ public partial class SettingsForm : Form
         nudFcgiPort.Value = _config.Php.FcgiPort;
         nudWorkers.Value = _config.Php.Workers;
         nudMaxRequests.Value = _config.Php.MaxRequests;
+        nudMemoryRestart.Value = _config.Php.MemoryRestartThreshold;
         nudMemoryLimit.Value = _config.Php.MemoryLimit;
         nudMaxExecTime.Value = _config.Php.MaxExecutionTime;
         chkOpcache.Checked = _config.Php.EnableOpcache;
@@ -376,7 +391,12 @@ public partial class SettingsForm : Form
             _config.AutoStart != chkAutoStart.Checked ||
             _config.StartWithWindows != chkStartWithWindows.Checked;
 
-        ConfigChanged = NeedsApacheRestart || NeedsPhpRestart || generalChanged;
+        // Deliberately not part of NeedsPhpRestart: ServerManager re-reads the threshold through
+        // ApplyPhpMemorySettings, so changing it must not bounce a healthy pool.
+        bool memoryWatchdogChanged =
+            _config.Php.MemoryRestartThreshold != (int)nudMemoryRestart.Value;
+
+        ConfigChanged = NeedsApacheRestart || NeedsPhpRestart || generalChanged || memoryWatchdogChanged;
 
         // Write new values
         _config.ServerMode = (ServerMode)cboServerMode.SelectedItem!;
@@ -395,6 +415,7 @@ public partial class SettingsForm : Form
         _config.Php.FcgiPort = (int)nudFcgiPort.Value;
         _config.Php.Workers = (int)nudWorkers.Value;
         _config.Php.MaxRequests = (int)nudMaxRequests.Value;
+        _config.Php.MemoryRestartThreshold = (int)nudMemoryRestart.Value;
         _config.Php.MemoryLimit = (int)nudMemoryLimit.Value;
         _config.Php.MaxExecutionTime = (int)nudMaxExecTime.Value;
         _config.Php.EnableOpcache = chkOpcache.Checked;
@@ -411,18 +432,25 @@ public partial class SettingsForm : Form
     private async void btnApplyModeDefaults_Click(object sender, EventArgs e)
     {
         bool isProd = (ServerMode)cboServerMode.SelectedItem! == ServerMode.Production;
+
+        // Worker count is capped, not scaled by core count: each php-cgi worker is a process
+        // costing ~35 MB working set, and a load ramp on a 12-core box showed 24 workers idling at
+        // 891 MB while serving FEWER req/s at 16-way concurrency than 8 workers at 322 MB. Keep
+        // these in step with PhpSettings.Workers' own default.
+        // MaxRequests stays 0 in both modes so FastCGI connection pooling can be emitted — see
+        // ApacheConfigWriter.FcgiReuse and doc/PERFORMANCE_EVALUATION.md.
         if (isProd)
         {
-            nudWorkers.Value = Math.Max(8, Environment.ProcessorCount * 4);
-            nudMaxRequests.Value = 10000;
+            nudWorkers.Value = Math.Clamp(Environment.ProcessorCount, 8, 16);
+            nudMaxRequests.Value = 0;
             nudOpcacheMemory.Value = 256;
             nudKeepAlive.Value = 5;
             nudMaxClients.Value = Math.Max(500, Math.Min(2000, Environment.ProcessorCount * 50));
         }
         else
         {
-            nudWorkers.Value = Math.Max(4, Environment.ProcessorCount * 2);
-            nudMaxRequests.Value = 1000;
+            nudWorkers.Value = Math.Clamp(Environment.ProcessorCount, 4, 8);
+            nudMaxRequests.Value = 0;
             nudOpcacheMemory.Value = 128;
             nudKeepAlive.Value = 15;
             nudMaxClients.Value = 256;
