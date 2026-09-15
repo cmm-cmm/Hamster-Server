@@ -517,7 +517,7 @@ partial class PhpConfigForm
         flpFooter.FlowDirection = FlowDirection.RightToLeft;
         flpFooter.Location = new Point(414, 8);
         flpFooter.Name = "flpFooter";
-        flpFooter.Size = new Size(330, 35);
+        flpFooter.Size = new Size(370, 35);
         flpFooter.TabIndex = 0;
         flpFooter.WrapContents = false;
         //

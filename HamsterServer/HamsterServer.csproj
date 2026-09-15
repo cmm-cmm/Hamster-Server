@@ -19,9 +19,12 @@
     <!-- Product metadata -->
     <Product>Hamster Server</Product>
     <AssemblyTitle>Hamster Server — Local Apache + PHP Dev Server</AssemblyTitle>
-    <Version>1.1.0</Version>
+    <Version>1.2.0</Version>
     <Company>Hamster Server</Company>
     <Copyright>Copyright © Hamster Server</Copyright>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <RepositoryUrl>https://github.com/cmm-cmm/Hamster-Server</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
 
     <!-- Desktop app: workstation concurrent GC = lower latency + smaller footprint -->
     <ServerGarbageCollection>false</ServerGarbageCollection>

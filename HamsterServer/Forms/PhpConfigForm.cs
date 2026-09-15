@@ -31,6 +31,10 @@ public partial class PhpConfigForm : Form
         lblPhpTitle.Text = $"PHP {phpInfo.Version} — {_phpIniPath}";
         rtbPhpIni.Font = UiTheme.CreateMonospaceFont();
 
+        // Only the action button gets a glyph — Save and Close are plain dialog buttons.
+        // Amber, because this one bounces a running service.
+        UiTheme.ApplyGlyph(btnPhpSaveRestart, UiTheme.Glyph.Refresh, UiTheme.StatusTransition);
+
         LoadFromIni();
         LoadExtensions();
         LoadRawIni();
