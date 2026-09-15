@@ -9,7 +9,7 @@ $size = is_int($requestedSize) && in_array($requestedSize, $allowedSizes, true)
     : 65_536;
 
 $startedAt = hrtime(true);
-$chunk = 'Hamster Server-PHP-payload-0123456789abcdefghijklmnopqrstuvwxyz' . "\n";
+$chunk = 'XServer-PHP-payload-0123456789abcdefghijklmnopqrstuvwxyz' . "\n";
 $payload = substr(str_repeat($chunk, (int) ceil($size / strlen($chunk))), 0, $size);
 $elapsedMs = (hrtime(true) - $startedAt) / 1_000_000;
 $formattedTime = number_format($elapsedMs, 3, '.', '');
