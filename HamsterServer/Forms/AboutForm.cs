@@ -12,6 +12,7 @@ public partial class AboutForm : Form
     private const string RepositoryUrl = "https://github.com/cmm-cmm/Hamster-Server";
     private const string LicenseUrl = "https://github.com/cmm-cmm/Hamster-Server/blob/main/LICENSE";
     private const string SponsorUrl = "https://github.com/sponsors/cmm-cmm";
+    private const string PublisherUrl = "https://konexforge.com/";
 
     private readonly string _systemInfo;
 
@@ -99,7 +100,7 @@ public partial class AboutForm : Form
         string rootDir)
     {
         var sb = new StringBuilder();
-        sb.AppendLine($"Hamster Server {version}");
+        sb.AppendLine($"Hamster Server {version} — a Konex Forge product");
         sb.AppendLine($"Runtime:       {RuntimeInformation.FrameworkDescription}");
         sb.AppendLine($"Windows:       {RuntimeInformation.OSDescription} ({RuntimeInformation.OSArchitecture})");
         sb.AppendLine($"Apache:        {Blank(apacheVersion)}");
@@ -146,6 +147,9 @@ public partial class AboutForm : Form
 
     private void lnkSponsor_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e) =>
         OpenUrl(SponsorUrl);
+
+    private void lnkPublisher_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e) =>
+        OpenUrl(PublisherUrl);
 
     private void OpenUrl(string url)
     {

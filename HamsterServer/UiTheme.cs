@@ -186,7 +186,11 @@ internal static class UiTheme
         g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
         g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAliasGridFit;
 
-        using var font = new Font(IconFontName, size * 0.62F, FontStyle.Regular, GraphicsUnit.Pixel);
+        // 0.875 rather than the em-size the icon font is drawn for: at 1.0 several glyphs with
+        // full-height detail get clipped by the cell (Server loses its base, Star its point,
+        // Page and Wrench a corner). Below ~0.8 the strokes thin out and the glyph reads as
+        // washed out next to the label beside it — 0.62 was the original value and looked faded.
+        using var font = new Font(IconFontName, size * 0.875F, FontStyle.Regular, GraphicsUnit.Pixel);
         using var brush = new SolidBrush(color);
         using var format = new StringFormat
         {

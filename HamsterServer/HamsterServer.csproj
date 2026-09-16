@@ -20,8 +20,8 @@
     <Product>Hamster Server</Product>
     <AssemblyTitle>Hamster Server — Local Apache + PHP Dev Server</AssemblyTitle>
     <Version>1.2.0</Version>
-    <Company>Hamster Server</Company>
-    <Copyright>Copyright © Hamster Server</Copyright>
+    <Company>Konex Forge</Company>
+    <Copyright>Copyright © Konex Forge</Copyright>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <RepositoryUrl>https://github.com/cmm-cmm/Hamster-Server</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
