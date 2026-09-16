@@ -24,6 +24,7 @@ partial class AboutForm
         panHeader = new Panel();
         panTitles = new Panel();
         lblSub = new Label();
+        lblPublisher = new Label();
         lblVersion = new Label();
         lblTitle = new Label();
         picLogo = new PictureBox();
@@ -46,6 +47,7 @@ partial class AboutForm
         lnkRepository = new LinkLabel();
         lnkLicense = new LinkLabel();
         lnkSponsor = new LinkLabel();
+        lnkPublisher = new LinkLabel();
         flpFooter = new FlowLayoutPanel();
         btnClose = new Button();
         btnCopyInfo = new Button();
@@ -69,7 +71,7 @@ partial class AboutForm
         panHeader.Location = new Point(10, 10);
         panHeader.Name = "panHeader";
         panHeader.Padding = new Padding(0, 0, 0, 10);
-        panHeader.Size = new Size(504, 88);
+        panHeader.Size = new Size(504, 126);
         panHeader.TabIndex = 0;
         //
         // picLogo
@@ -77,13 +79,14 @@ partial class AboutForm
         picLogo.Dock = DockStyle.Left;
         picLogo.Location = new Point(0, 0);
         picLogo.Name = "picLogo";
-        picLogo.Size = new Size(72, 78);
+        picLogo.Size = new Size(72, 116);
         picLogo.SizeMode = PictureBoxSizeMode.Zoom;
         picLogo.TabIndex = 0;
         picLogo.TabStop = false;
         //
         // panTitles
         //
+        panTitles.Controls.Add(lblPublisher);
         panTitles.Controls.Add(lblSub);
         panTitles.Controls.Add(lblVersion);
         panTitles.Controls.Add(lblTitle);
@@ -91,7 +94,7 @@ partial class AboutForm
         panTitles.Location = new Point(72, 0);
         panTitles.Name = "panTitles";
         panTitles.Padding = new Padding(14, 2, 0, 0);
-        panTitles.Size = new Size(432, 78);
+        panTitles.Size = new Size(432, 116);
         panTitles.TabIndex = 1;
         //
         // lblTitle
@@ -127,6 +130,18 @@ partial class AboutForm
         lblSub.Size = new Size(418, 22);
         lblSub.TabIndex = 2;
         lblSub.Text = "Local Apache + PHP development server for Windows.";
+        //
+        // lblPublisher
+        //
+        lblPublisher.AutoSize = true;
+        lblPublisher.Dock = DockStyle.Top;
+        lblPublisher.ForeColor = SystemColors.GrayText;
+        lblPublisher.Location = new Point(14, 72);
+        lblPublisher.Name = "lblPublisher";
+        lblPublisher.Padding = new Padding(0, 4, 0, 0);
+        lblPublisher.Size = new Size(418, 22);
+        lblPublisher.TabIndex = 3;
+        lblPublisher.Text = "A Konex Forge product.";
         //
         // grpInfo
         //
@@ -307,6 +322,7 @@ partial class AboutForm
         flpLinks.Controls.Add(lnkRepository);
         flpLinks.Controls.Add(lnkLicense);
         flpLinks.Controls.Add(lnkSponsor);
+        flpLinks.Controls.Add(lnkPublisher);
         flpLinks.Dock = DockStyle.Top;
         flpLinks.Location = new Point(0, 8);
         flpLinks.Name = "flpLinks";
@@ -346,6 +362,17 @@ partial class AboutForm
         lnkSponsor.TabStop = true;
         lnkSponsor.Text = "Sponsor";
         lnkSponsor.LinkClicked += lnkSponsor_LinkClicked;
+        //
+        // lnkPublisher
+        //
+        lnkPublisher.AutoSize = true;
+        lnkPublisher.Location = new Point(253, 0);
+        lnkPublisher.Name = "lnkPublisher";
+        lnkPublisher.Size = new Size(82, 15);
+        lnkPublisher.TabIndex = 3;
+        lnkPublisher.TabStop = true;
+        lnkPublisher.Text = "Konex Forge";
+        lnkPublisher.LinkClicked += lnkPublisher_LinkClicked;
         //
         // flpFooter
         //
@@ -394,7 +421,7 @@ partial class AboutForm
         AutoScaleDimensions = new SizeF(7F, 15F);
         AutoScaleMode = AutoScaleMode.Font;
         CancelButton = btnClose;
-        ClientSize = new Size(524, 378);
+        ClientSize = new Size(524, 416);
         Controls.Add(grpInfo);
         Controls.Add(panFooter);
         Controls.Add(panHeader);
@@ -428,6 +455,7 @@ partial class AboutForm
     private Label lblTitle;
     private Label lblVersion;
     private Label lblSub;
+    private Label lblPublisher;
     private GroupBox grpInfo;
     private TableLayoutPanel tblInfo;
     private Label lblApacheCaption;
@@ -447,6 +475,7 @@ partial class AboutForm
     private LinkLabel lnkRepository;
     private LinkLabel lnkLicense;
     private LinkLabel lnkSponsor;
+    private LinkLabel lnkPublisher;
     private FlowLayoutPanel flpFooter;
     private Button btnClose;
     private Button btnCopyInfo;

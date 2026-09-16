@@ -8,6 +8,8 @@ service separately.
 The current development source identifies as **Hamster Server 1.2.0** and targets
 **.NET 10 for Windows**.
 
+Hamster Server is a product of [Konex Forge](https://konexforge.com/).
+
 ## Features
 
 - Start, stop, and restart Apache and PHP-CGI together or independently.
