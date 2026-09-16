@@ -55,7 +55,7 @@ final class BenchmarkSuite
     private static function hashWorkload(int $intensity): array
     {
         $iterations = 200 * $intensity;
-        $value = str_repeat('hamster-server-performance-', 128);
+        $value = str_repeat('xserver-performance-', 128);
         for ($index = 0; $index < $iterations; $index++) {
             $value = hash('sha256', $value . $index, true);
         }
@@ -124,7 +124,7 @@ final class BenchmarkSuite
     /** @return array{checksum: string, operations: int} */
     private static function stringWorkload(int $intensity): array
     {
-        $source = 'hamster-server local php performance & security <benchmark>';
+        $source = 'xserver local php performance & security <benchmark>';
         $rendered = '';
         $iterations = 120 * $intensity;
         for ($pass = 0; $pass < $iterations; $pass++) {
@@ -146,7 +146,7 @@ final class BenchmarkSuite
     private static function serializeWorkload(int $intensity): array
     {
         $payload = [
-            'user' => ['id' => 42, 'name' => 'Hamster Server User', 'roles' => ['admin', 'developer']],
+            'user' => ['id' => 42, 'name' => 'XServer User', 'roles' => ['admin', 'developer']],
             'settings' => ['locale' => 'vi_VN', 'timezone' => 'Asia/Ho_Chi_Minh', 'dark' => true],
             'items' => array_map(
                 static fn (int $id): array => ['id' => $id, 'sku' => "SKU-{$id}", 'price' => $id * 1.25],
@@ -214,7 +214,7 @@ final class BenchmarkSuite
             throw new RuntimeException('The zlib extension is required for this profile.');
         }
 
-        $source = str_repeat('Hamster Server PHP compression benchmark: JSON CSS HTML JavaScript 0123456789' . "\n", 1_800);
+        $source = str_repeat('XServer PHP compression benchmark: JSON CSS HTML JavaScript 0123456789' . "\n", 1_800);
         $compressed = '';
         $iterations = 3 * $intensity;
         for ($pass = 0; $pass < $iterations; $pass++) {
@@ -233,7 +233,7 @@ final class BenchmarkSuite
     /** @return array{checksum: string, operations: int} */
     private static function streamWorkload(int $intensity): array
     {
-        $payload = str_repeat('hamster-server-stream-0123456789abcdef', 2_048);
+        $payload = str_repeat('xserver-stream-0123456789abcdef', 2_048);
         $hash = '';
         $iterations = 8 * $intensity;
         for ($pass = 0; $pass < $iterations; $pass++) {
@@ -265,7 +265,7 @@ final class BenchmarkSuite
             throw new RuntimeException('Could not create benchmark temporary file.');
         }
 
-        $payload = str_repeat('hamster-server-file-0123456789abcdef', 1_024);
+        $payload = str_repeat('xserver-file-0123456789abcdef', 1_024);
         $hash = '';
         $iterations = 2 * $intensity;
         try {
@@ -298,7 +298,7 @@ final class BenchmarkSuite
     {
         $token = '';
         $iterations = 80 * $intensity;
-        $key = 'hamster-server-benchmark-key';
+        $key = 'xserver-benchmark-key';
         for ($pass = 0; $pass < $iterations; $pass++) {
             $bytes = random_bytes(32);
             $token = base64_encode($bytes) . '.' . hash_hmac('sha256', $bytes, $key);

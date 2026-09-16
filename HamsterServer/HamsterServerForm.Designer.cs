@@ -215,14 +215,14 @@ partial class HamsterServerForm
         // 
         mnuSvcApacheStart.Name = "mnuSvcApacheStart";
         mnuSvcApacheStart.Size = new Size(98, 22);
-        mnuSvcApacheStart.Text = "Start";
+        mnuSvcApacheStart.Text = "&Start";
         mnuSvcApacheStart.Click += btnApacheStart_Click;
         // 
         // mnuSvcApacheStop
         // 
         mnuSvcApacheStop.Name = "mnuSvcApacheStop";
         mnuSvcApacheStop.Size = new Size(98, 22);
-        mnuSvcApacheStop.Text = "Stop";
+        mnuSvcApacheStop.Text = "S&top";
         mnuSvcApacheStop.Click += btnApacheStop_Click;
         // 
         // mnuSvcPhp
@@ -236,14 +236,14 @@ partial class HamsterServerForm
         // 
         mnuSvcPhpStart.Name = "mnuSvcPhpStart";
         mnuSvcPhpStart.Size = new Size(98, 22);
-        mnuSvcPhpStart.Text = "Start";
+        mnuSvcPhpStart.Text = "&Start";
         mnuSvcPhpStart.Click += btnPhpStart_Click;
         // 
         // mnuSvcPhpStop
         // 
         mnuSvcPhpStop.Name = "mnuSvcPhpStop";
         mnuSvcPhpStop.Size = new Size(98, 22);
-        mnuSvcPhpStop.Text = "Stop";
+        mnuSvcPhpStop.Text = "S&top";
         mnuSvcPhpStop.Click += btnPhpStop_Click;
         // 
         // mnuTools
@@ -271,7 +271,7 @@ partial class HamsterServerForm
         // 
         mnuToolsVHosts.Name = "mnuToolsVHosts";
         mnuToolsVHosts.Size = new Size(200, 22);
-        mnuToolsVHosts.Text = "&Virtual Hosts…";
+        mnuToolsVHosts.Text = "Vir&tual Hosts…";
         mnuToolsVHosts.Click += btnVHosts_Click;
         // 
         // mnuToolsPorts
@@ -322,7 +322,7 @@ partial class HamsterServerForm
         // mnuHelpAbout
         // 
         mnuHelpAbout.Name = "mnuHelpAbout";
-        mnuHelpAbout.Size = new Size(149, 22);
+        mnuHelpAbout.Size = new Size(190, 22);
         mnuHelpAbout.Text = "&About Hamster Server";
         mnuHelpAbout.Click += mnuHelpAbout_Click;
         // 
@@ -557,14 +557,14 @@ partial class HamsterServerForm
         // 
         ctxSvcStart.Name = "ctxSvcStart";
         ctxSvcStart.Size = new Size(136, 22);
-        ctxSvcStart.Text = "Start";
+        ctxSvcStart.Text = "&Start";
         ctxSvcStart.Click += btnSvcStart_Click;
         // 
         // ctxSvcStop
         // 
         ctxSvcStop.Name = "ctxSvcStop";
         ctxSvcStop.Size = new Size(136, 22);
-        ctxSvcStop.Text = "Stop";
+        ctxSvcStop.Text = "S&top";
         ctxSvcStop.Click += btnSvcStop_Click;
         // 
         // ctxSvcSep1
@@ -576,7 +576,7 @@ partial class HamsterServerForm
         // 
         ctxSvcConfig.Name = "ctxSvcConfig";
         ctxSvcConfig.Size = new Size(136, 22);
-        ctxSvcConfig.Text = "Configure…";
+        ctxSvcConfig.Text = "&Configure…";
         ctxSvcConfig.Click += btnSvcConfig_Click;
         // 
         // panSvcActions
@@ -598,7 +598,7 @@ partial class HamsterServerForm
         flpSvcRight.Dock = DockStyle.Right;
         flpSvcRight.Location = new Point(569, 5);
         flpSvcRight.Name = "flpSvcRight";
-        flpSvcRight.Size = new Size(283, 33);
+        flpSvcRight.Size = new Size(360, 33);
         flpSvcRight.TabIndex = 1;
         flpSvcRight.WrapContents = false;
         // 

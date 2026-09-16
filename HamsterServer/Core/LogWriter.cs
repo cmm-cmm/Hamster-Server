@@ -68,17 +68,24 @@ public sealed class LogWriter : IDisposable
         PruneOldLogs(today);  // Fix 2.1: xóa log cũ hơn 30 ngày mỗi khi sang ngày mới
     }
 
+    // Chỉ dọn log do app này sinh ra — không động vào Apache/PHP access/error logs.
+    // xserver-*.log là tên trước khi đổi tên sang Hamster Server: không còn được ghi nữa
+    // nhưng vẫn phải nằm trong retention, nếu không nó tồn tại vĩnh viễn trên máy user.
+    private static readonly string[] ServerLogPatterns = ["hamster-server-*.log", "xserver-*.log"];
+
     // Xóa server log files cũ hơn 30 ngày để tránh disk fill.
-    // Chỉ xóa hamster-server-*.log (không động vào Apache/PHP access/error logs).
     private void PruneOldLogs(DateTime today)
     {
         try
         {
             var cutoff = today.AddDays(-30);
-            foreach (var f in Directory.GetFiles(_logDir, "hamster-server-*.log"))
+            foreach (var pattern in ServerLogPatterns)
             {
-                if (File.GetLastWriteTime(f) < cutoff)
-                    File.Delete(f);
+                foreach (var f in Directory.GetFiles(_logDir, pattern))
+                {
+                    if (File.GetLastWriteTime(f) < cutoff)
+                        File.Delete(f);
+                }
             }
         }
         catch { /* prune failure must not crash the app */ }

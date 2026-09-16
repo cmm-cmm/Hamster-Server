@@ -105,8 +105,27 @@ public class PhpSettings
     // more concurrency than a local dev machine ever asks for. Existing configs keep their value.
     public int Workers { get; set; } = Math.Clamp(Environment.ProcessorCount, 4, 8);
 
+    /// <summary>
+    /// Số request một php-cgi worker phục vụ trước khi tự thoát và được thay bằng worker mới.
+    /// <c>0</c> = không bao giờ recycle, và đây là giá trị bắt buộc khi FastCGI connection reuse
+    /// đang bật: Apache có thể tái sử dụng đúng socket mà worker vừa đóng khi đạt giới hạn, tạo
+    /// HTTP 503 rải rác (xem doc/PERFORMANCE_EVALUATION.md). ApacheConfigWriter.FcgiReuse vì vậy
+    /// chỉ phát tham số reuse khi giá trị này là 0.
+    /// </summary>
     [JsonPropertyName("maxRequests")]
-    public int MaxRequests { get; set; } = 1000; // Fix 2.5: worker recycle thường xuyên hơn để giải phóng bộ nhớ tích lũy
+    public int MaxRequests { get; set; } = 0;
+
+    /// <summary>
+    /// Tổng working set (MB) của cả pool php-cgi mà khi vượt qua, Hamster Server sẽ khởi động lại
+    /// pool — nhưng chỉ vào lúc pool đang rảnh, không có request nào đang chạy. <c>0</c> = tắt.
+    /// <para>
+    /// Đây là đối trọng của <see cref="MaxRequests"/> = 0: khi worker không bao giờ tự recycle thì
+    /// không còn cơ chế nào giải phóng bộ nhớ tích lũy, nên việc dọn dẹp chuyển sang đo bộ nhớ thật
+    /// thay vì đếm số request. Xem doc/PERFORMANCE_EVALUATION.md.
+    /// </para>
+    /// </summary>
+    [JsonPropertyName("memoryRestartThreshold")]
+    public int MemoryRestartThreshold { get; set; } = 1024;
 
     [JsonPropertyName("memoryLimit")]
     public int MemoryLimit { get; set; } = 512;

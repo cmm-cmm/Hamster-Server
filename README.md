@@ -5,8 +5,10 @@ multiple PHP runtimes, and a native WinForms control panel. It provides a portab
 environment for running PHP applications without installing or configuring each
 service separately.
 
-The current development source identifies as **Hamster Server 1.1.0** and targets
+The current development source identifies as **Hamster Server 1.2.0** and targets
 **.NET 10 for Windows**.
+
+Hamster Server is a product of [Konex Forge](https://konexforge.com/).
 
 ## Features
 

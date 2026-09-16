@@ -13,6 +13,12 @@ public class ConfigManager
     private const string LegacyConfigFileName = "xserver.json";
 
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
+
+    // Default cũ của PhpSettings.MaxRequests. Worker recycle theo số request xung đột với FastCGI
+    // connection reuse: soak test đo 3 × HTTP 503 / 12.000 request ở mức 1000, và 0 lỗi khi bỏ
+    // recycle với cùng throughput. Config nào vẫn mang đúng default cũ được nâng lên "không
+    // recycle" một lần; giá trị do người dùng tự chọn thì giữ nguyên.
+    private const int LegacyDefaultMaxRequests = 1000;
     private static readonly HashSet<string> LegacyDefaultExtensions = new(
         [
             "curl", "fileinfo", "gd", "intl", "mbstring", "openssl",
@@ -134,12 +140,28 @@ public class ConfigManager
         var legacyPath = Path.Combine(configDir, LegacyConfigFileName);
         CopyLegacyFileIfNeeded(legacyPath, _configPath);
         CopyLegacyFileIfNeeded(legacyPath + ".bak", _configPath + ".bak");
+
+        // Dữ liệu đã nằm dưới tên mới, nên xserver.json* chỉ còn là rác: lần chạy sau
+        // CopyLegacyFileIfNeeded cũng bỏ qua chúng vì đích đã tồn tại. Chỉ xóa khi đã
+        // chắc chắn có file đích — nếu copy ở trên thất bại thì giữ nguyên bản gốc.
+        if (File.Exists(_configPath) || File.Exists(_configPath + ".bak"))
+            DeleteLegacyLeftovers(legacyPath);
     }
 
     private static void CopyLegacyFileIfNeeded(string legacyPath, string destinationPath)
     {
         if (!File.Exists(destinationPath) && File.Exists(legacyPath))
             File.Copy(legacyPath, destinationPath);
+    }
+
+    // Gồm cả .tmp/.recovery.tmp do bản XServer để lại khi save/recovery bị ngắt giữa chừng.
+    private static void DeleteLegacyLeftovers(string legacyPath)
+    {
+        foreach (var suffix in new[] { "", ".bak", ".tmp", ".recovery.tmp" })
+        {
+            try { File.Delete(legacyPath + suffix); }
+            catch { /* file đang bị khóa: lần chạy sau dọn tiếp, không được làm hỏng startup */ }
+        }
     }
 
     private void RestorePrimaryFromBackup(string backup)
@@ -181,8 +203,19 @@ public class ConfigManager
         config.Apache.MaxClients = Math.Clamp(config.Apache.MaxClients, 1, 2000);
         config.Apache.KeepAliveTimeout = Math.Clamp(config.Apache.KeepAliveTimeout, 1, 300);
         config.Php.Workers = Math.Clamp(config.Php.Workers, 1, 256);
-        config.Php.MaxRequests = Math.Clamp(config.Php.MaxRequests, 1, 1_000_000);
+        if (config.Php.MaxRequests == LegacyDefaultMaxRequests)
+            config.Php.MaxRequests = 0;
+        // 0 nghĩa là không recycle (php-cgi hiểu PHP_FCGI_MAX_REQUESTS=0 là không giới hạn), nên
+        // giá trị <= 0 phải về 0 chứ không bị kẹp lên 1 — recycle sau mỗi request là cấu hình tệ nhất.
+        config.Php.MaxRequests = config.Php.MaxRequests <= 0
+            ? 0
+            : Math.Clamp(config.Php.MaxRequests, 1, 1_000_000);
         config.Php.MemoryLimit = Math.Clamp(config.Php.MemoryLimit, 16, 16_384);
+        // 0 tắt hẳn việc theo dõi; dưới 128 MB thì một pool vừa khởi động đã vượt ngưỡng, nên giá
+        // trị dương quá nhỏ được nâng lên sàn thay vì tạo vòng lặp restart.
+        config.Php.MemoryRestartThreshold = config.Php.MemoryRestartThreshold <= 0
+            ? 0
+            : Math.Clamp(config.Php.MemoryRestartThreshold, 128, 65_536);
         config.Php.MaxExecutionTime = Math.Clamp(config.Php.MaxExecutionTime, 1, 86_400);
         config.Php.OpcacheMemory = Math.Clamp(config.Php.OpcacheMemory, 16, 4_096);
 

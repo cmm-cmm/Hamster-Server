@@ -45,6 +45,57 @@ public sealed class RuntimeSmokeTests
         Assert.AreEqual(0, process.ExitCode, $"{await stderr}\n{await stdout}");
     }
 
+    // Turning recycling back on drops the reuse parameters from every ProxyPassMatch, which is a
+    // different directive shape than the default config exercises above.
+    [TestMethod]
+    [TestCategory("Integration")]
+    public async Task BundledApache_AcceptsConfigurationWithWorkerRecycling()
+    {
+        var repositoryRoot = FindRepositoryRoot();
+        var apacheDir = Path.Combine(repositoryRoot, "HamsterServer", "apache", "Apache24");
+        var httpd = Path.Combine(apacheDir, "bin", "httpd.exe");
+        Assert.IsTrue(File.Exists(httpd), $"Bundled Apache not found: {httpd}");
+
+        using var root = new TestDirectory();
+        var configDir = Path.Combine(root.Path, "config");
+        var configPath = Path.Combine(configDir, "httpd.conf");
+        var wwwDir = Path.Combine(root.Path, "www");
+        Directory.CreateDirectory(wwwDir);
+
+        var config = new AppConfig
+        {
+            VHosts = [new VHostEntry { ServerName = "recycle.test", DocumentRoot = wwwDir }]
+        };
+        config.Php.FcgiPort = 39002;
+        config.Php.MaxRequests = 500;
+
+        var writer = new ApacheConfigWriter(root.Path, config);
+        writer.WriteHttpdConf(configPath, apacheDir, wwwDir, configDir);
+        var vhostDir = Path.Combine(configDir, "vhosts");
+        writer.WriteAllVHosts(vhostDir);
+
+        foreach (var file in Directory.GetFiles(vhostDir, "*.conf"))
+            Assert.IsFalse(File.ReadAllText(file).Contains("enablereuse", StringComparison.Ordinal),
+                $"{Path.GetFileName(file)} pooled connections while workers recycle.");
+
+        using var process = Process.Start(new ProcessStartInfo
+        {
+            FileName = httpd,
+            ArgumentList = { "-t", "-f", configPath },
+            WorkingDirectory = apacheDir,
+            UseShellExecute = false,
+            RedirectStandardError = true,
+            RedirectStandardOutput = true,
+            CreateNoWindow = true
+        });
+        Assert.IsNotNull(process);
+        var stderr = process.StandardError.ReadToEndAsync();
+        var stdout = process.StandardOutput.ReadToEndAsync();
+        await process.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(15));
+
+        Assert.AreEqual(0, process.ExitCode, $"{await stderr}\n{await stdout}");
+    }
+
     [TestMethod]
     [TestCategory("Integration")]
     public async Task BundledPhpExecutables_ReportExpectedVersions()

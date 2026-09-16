@@ -212,27 +212,54 @@ public partial class HamsterServerForm : Form
         SetIcon(tsbRestart, UiTheme.Glyph.Refresh, UiTheme.StatusTransition);
         SetIcon(tsbSettings, UiTheme.Glyph.Settings, UiTheme.AccentNeutral);
         SetIcon(tsbVHosts, UiTheme.Glyph.Link, UiTheme.AccentAction);
-        SetIcon(tsbPorts, UiTheme.Glyph.Server, UiTheme.AccentAction);
+        SetIcon(tsbPorts, UiTheme.Glyph.Ports, UiTheme.AccentAction);
         SetIcon(tsbOpenWww, UiTheme.Glyph.Folder, UiTheme.StatusTransition);
         SetIcon(tsbBrowser, UiTheme.Glyph.World, UiTheme.AccentHttp);
 
         SetIcon(btnClearLog, UiTheme.Glyph.Clear, UiTheme.AccentNeutral);
         SetIcon(btnOpenLog, UiTheme.Glyph.Folder, UiTheme.StatusTransition);
 
+        // File
+        SetIcon(mnuFileOpenWww, UiTheme.Glyph.Folder, UiTheme.StatusTransition);
+        SetIcon(mnuFileOpenLogs, UiTheme.Glyph.Folder, UiTheme.StatusTransition);
+        SetIcon(mnuFileHide, UiTheme.Glyph.Minimize, UiTheme.AccentNeutral);
+        SetIcon(mnuFileExit, UiTheme.Glyph.Exit, UiTheme.StatusError);
+
+        // Service — the two per-service submenus reuse the log's Apache/PHP colours, which is
+        // already how the UI tells those two apart everywhere else.
         SetIcon(mnuSvcStartAll, UiTheme.Glyph.Play, UiTheme.StatusRunning);
         SetIcon(mnuSvcStopAll, UiTheme.Glyph.Stop, UiTheme.StatusError);
         SetIcon(mnuSvcRestartAll, UiTheme.Glyph.Refresh, UiTheme.StatusTransition);
+        SetIcon(mnuSvcApache, UiTheme.Glyph.Server, UiTheme.LogApache);
+        SetIcon(mnuSvcApacheStart, UiTheme.Glyph.Play, UiTheme.StatusRunning);
+        SetIcon(mnuSvcApacheStop, UiTheme.Glyph.Stop, UiTheme.StatusError);
+        SetIcon(mnuSvcPhp, UiTheme.Glyph.Code, UiTheme.LogPhp);
+        SetIcon(mnuSvcPhpStart, UiTheme.Glyph.Play, UiTheme.StatusRunning);
+        SetIcon(mnuSvcPhpStop, UiTheme.Glyph.Stop, UiTheme.StatusError);
+
+        // Tools
         SetIcon(mnuToolsSettings, UiTheme.Glyph.Settings, UiTheme.AccentNeutral);
-        SetIcon(mnuToolsPhpVersions, UiTheme.Glyph.Refresh, UiTheme.AccentAction);
+        SetIcon(mnuToolsPhpVersions, UiTheme.Glyph.Download, UiTheme.AccentAction);
         SetIcon(mnuToolsVHosts, UiTheme.Glyph.Link, UiTheme.AccentAction);
-        SetIcon(mnuToolsPorts, UiTheme.Glyph.Server, UiTheme.AccentAction);
-        SetIcon(mnuFileOpenWww, UiTheme.Glyph.Folder, UiTheme.StatusTransition);
-        SetIcon(mnuFileOpenLogs, UiTheme.Glyph.Folder, UiTheme.StatusTransition);
+        SetIcon(mnuToolsPorts, UiTheme.Glyph.Ports, UiTheme.AccentAction);
+        SetIcon(mnuToolsApacheConfig, UiTheme.Glyph.Page, UiTheme.LogApache);
+        SetIcon(mnuToolsPhpConfig, UiTheme.Glyph.Page, UiTheme.LogPhp);
         SetIcon(mnuToolsBrowser, UiTheme.Glyph.World, UiTheme.AccentHttp);
 
+        // Help
+        SetIcon(mnuHelpAbout, UiTheme.Glyph.Info, UiTheme.AccentAction);
+
+        // Services context menu
         SetIcon(ctxSvcStart, UiTheme.Glyph.Play, UiTheme.StatusRunning);
         SetIcon(ctxSvcStop, UiTheme.Glyph.Stop, UiTheme.StatusError);
         SetIcon(ctxSvcConfig, UiTheme.Glyph.Settings, UiTheme.AccentNeutral);
+
+        // Buttons beside the Services list — same actions as the context menu above, so the same
+        // glyphs and colours.
+        SetIcon(btnSvcStart, UiTheme.Glyph.Play, UiTheme.StatusRunning);
+        SetIcon(btnSvcStop, UiTheme.Glyph.Stop, UiTheme.StatusError);
+        SetIcon(btnSvcConfig, UiTheme.Glyph.Settings, UiTheme.AccentNeutral);
+        SetIcon(btnPhpVersions, UiTheme.Glyph.Download, UiTheme.AccentAction);
     }
 
     private static void SetIcon(ToolStripItem item, string glyph, Color color)
@@ -241,6 +268,9 @@ public partial class HamsterServerForm : Form
         if (item is ToolStripButton or ToolStripMenuItem)
             item.DisplayStyle = ToolStripItemDisplayStyle.ImageAndText;
     }
+
+    private static void SetIcon(Button button, string glyph, Color color) =>
+        UiTheme.ApplyGlyph(button, glyph, color);
 
     private void UpdateGlobalStatusIcon(bool allRunning, bool anyRunning, bool anyError)
     {
@@ -326,14 +356,15 @@ public partial class HamsterServerForm : Form
 
     private void mnuHelpAbout_Click(object sender, EventArgs e)
     {
-        var version = System.Reflection.Assembly.GetExecutingAssembly()
-            .GetName().Version?.ToString(3) ?? "1.0.0";
-        MessageBox.Show(this,
-            $"Hamster Server {version}\nLocal Apache + PHP development server.\n\n" +
-            $"Apache: {_server.GetApacheVersion()}\n" +
-            $"PHP: {_configMgr.Config.Php.CurrentVersion}\n" +
-            $"Root: {_rootDir}",
-            "About Hamster Server", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        // _baseIcon, not this.Icon: UpdateTaskbarIcon replaces the window icon with a composite
+        // carrying a status dot, and that dot has no business showing up as the About logo.
+        using var frm = new AboutForm(
+            _baseIcon ?? Icon ?? SystemIcons.Application,
+            _server.GetApacheVersion(),
+            _configMgr.Config.Php.CurrentVersion,
+            _phpMgr.Versions.Select(v => v.Version).ToArray(),
+            _rootDir);
+        frm.ShowDialog(this);
     }
 
     // ─── Health check ─────────────────────────────────────────────────────────
@@ -404,10 +435,10 @@ public partial class HamsterServerForm : Form
                         || _server.PhpStatus is ServerStatus.Starting or ServerStatus.Stopping;
 
         Color dot;
-        if (allRunning) dot = Color.FromArgb(39, 174, 96);   // green  — all running
-        else if (anyError) dot = Color.FromArgb(231, 76, 60);   // red    — error
-        else if (anyStarting || anyRunning) dot = Color.FromArgb(243, 156, 18);  // orange — starting / partial
-        else dot = Color.FromArgb(149, 165, 166);  // gray   — stopped
+        if (allRunning) dot = UiTheme.TaskbarDotRunning;
+        else if (anyError) dot = UiTheme.TaskbarDotError;
+        else if (anyStarting || anyRunning) dot = UiTheme.TaskbarDotTransition;  // starting / partial
+        else dot = UiTheme.TaskbarDotStopped;
 
         // Fix 1.3: skip expensive PNG re-encode when dot color unchanged (only 4 possible states)
         if (dot == _lastStatusDotColor) return;
@@ -741,7 +772,7 @@ public partial class HamsterServerForm : Form
         try
         {
             await _server.SwitchPhpVersionAsync(selected);
-            await _configMgr.SaveAsync();
+            await TrySaveConfigAsync();
         }
         finally
         {
@@ -763,14 +794,37 @@ public partial class HamsterServerForm : Form
         LogDirect($"[{DateTime.Now:HH:mm:ss}] PHP runtime list updated.");
     }
 
+    // Every dialog that mutates AppConfig persists it through here. Without the catch a failed
+    // write (full disk, antivirus holding the file) escapes an async void handler and surfaces as
+    // the generic Application.ThreadException box, which says nothing about what was lost — while
+    // ExitApp has always reported it properly. The in-memory config stays applied either way, so a
+    // failed save is a warning, not a reason to abandon the rest of the handler.
+    private async Task TrySaveConfigAsync()
+    {
+        try
+        {
+            await _configMgr.SaveAsync();
+        }
+        catch (Exception ex)
+        {
+            LogDirect($"[{DateTime.Now:HH:mm:ss}] [ERROR] Could not save configuration: {ex.Message}");
+            MessageBox.Show(this,
+                $"Could not save configuration:\n{ex.Message}\n\n" +
+                "The new settings are active for this session but will be lost on restart.",
+                "Hamster Server", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+        }
+    }
+
     private async void btnSettings_Click(object sender, EventArgs e)
     {
         _phpMgr.Scan();
         using var frm = new SettingsForm(_configMgr.Config, _rootDir);
         if (frm.ShowDialog(this) != DialogResult.OK || !frm.ConfigChanged) return;
 
-        await _configMgr.SaveAsync();
+        await TrySaveConfigAsync();
         ConfigManager.ApplyStartWithWindows(_configMgr.Config.StartWithWindows, Application.ExecutablePath);
+        // The memory watchdog reads its threshold live, so it is picked up without restarting PHP.
+        _server.ApplyPhpMemorySettings();
         PopulatePhpVersions();
         RefreshUI();
 
@@ -828,7 +882,7 @@ public partial class HamsterServerForm : Form
         bool apacheWasRunning = _server.IsApacheRunning;
         bool phpWasRunning = _server.IsPhpRunning;
 
-        await _configMgr.SaveAsync();
+        await TrySaveConfigAsync();
         RefreshUI();
 
         if (frm.NeedsPhpRestart)
@@ -864,7 +918,7 @@ public partial class HamsterServerForm : Form
         frm.ShowDialog(this);
         if (!frm.ConfigChanged) return;
 
-        await _configMgr.SaveAsync();
+        await TrySaveConfigAsync();
         RefreshUI();
 
         if (_server.IsApacheRunning)
@@ -907,7 +961,7 @@ public partial class HamsterServerForm : Form
         using var frm = new ApacheConfigForm(_configMgr.Config, _rootDir, _server);
         if (frm.ShowDialog(this) == DialogResult.OK && frm.ConfigChanged)
         {
-            await _configMgr.SaveAsync();
+            await TrySaveConfigAsync();
             if (_server.IsApacheRunning)
             {
                 LogDirect($"[{DateTime.Now:HH:mm:ss}] Apache config saved — restarting…");
@@ -950,6 +1004,13 @@ public partial class HamsterServerForm : Form
         FlushLogQueue();        // drain whatever is still queued while the UI is alive
         _isExiting = true;
         _tray.Visible = false;
+
+        // Shutdown runs synchronously on the UI thread on purpose — the process tree has to be
+        // gone before Application.Exit, and ServerManager.Dispose sweeps every httpd/php-cgi on
+        // the machine to catch mpm_winnt children that outlived their parent. That sweep plus the
+        // log flush can take a noticeable moment, so say so instead of freezing silently.
+        UseWaitCursor = true;
+        Enabled = false;
         try
         {
             _configMgr.Save();

@@ -30,7 +30,17 @@ public class ApacheConfigWriter
     // child is serving die on AH01075 polling timeouts. Measured at 32-way concurrency, reuse
     // without `max` dropped from 13 066 to 13 req/s; with `max` it holds ~18 000. `ttl` discards
     // connections that an exiting child left half-closed.
-    private string FcgiReuse => $"enablereuse=on max={_config.Php.Workers} ttl=15";
+    //
+    // Pooling is only emitted when workers never recycle (Php.MaxRequests == 0). `ttl` narrows but
+    // does not close the race where a worker hitting PHP_FCGI_MAX_REQUESTS closes a connection
+    // Apache is actively reusing: a 12 000-request soak at 32-way concurrency produced 3 × HTTP 503
+    // with AH01067 / AH01075 / Windows 10054, against 0 failures at the same throughput without
+    // recycling. So whoever deliberately turns recycling back on gets Apache's no-pooling default
+    // instead — slower, but never a stale socket. See doc/PERFORMANCE_EVALUATION.md.
+    // Includes its own leading separator so the directive has no trailing space when reuse is off.
+    private string FcgiReuse => _config.Php.MaxRequests == 0
+        ? $" enablereuse=on max={_config.Php.Workers} ttl=15"
+        : "";
 
     private string Listen(int port, bool ssl = false)
     {
@@ -142,6 +152,21 @@ public class ApacheConfigWriter
 
         // ── Default settings ───────────────────────────────────────────────
         sb.AppendLine("DirectoryIndex index.php index.html index.htm");
+        sb.AppendLine();
+
+        // ── Server status ──────────────────────────────────────────────────
+        // ServerManager polls BusyWorkers here to tell whether Apache is serving anything before
+        // it recycles the PHP pool for memory. It is the only accurate answer available: with
+        // connection pooling, sockets to php-cgi stay ESTABLISHED whether or not a request is on
+        // them, so counting connections cannot distinguish busy from idle.
+        // Always loopback-only, even when AllowLanAccess exposes everything else to the network.
+        // ExtendedStatus stays off — BusyWorkers is in the basic output and costs nothing.
+        sb.AppendLine("# Status endpoint (loopback only) — used to detect an idle PHP pool");
+        sb.AppendLine("<Location /server-status>");
+        sb.AppendLine("    SetHandler server-status");
+        sb.AppendLine("    Require ip 127.0.0.1");
+        sb.AppendLine("    Require ip ::1");
+        sb.AppendLine("</Location>");
         sb.AppendLine();
 
         // ── Performance ────────────────────────────────────────────────────
@@ -298,7 +323,7 @@ public class ApacheConfigWriter
             sb.AppendLine("    # PHP via FastCGI (Windows-compatible)");
             sb.AppendLine("    <IfModule proxy_fcgi_module>");
             sb.AppendLine("        ProxyFCGIBackendType GENERIC");
-            sb.AppendLine($"        ProxyPassMatch \"^/(.*\\.php(/.*)?)$\" \"fcgi://127.0.0.1:{_config.Php.FcgiPort}/$1\" {FcgiReuse}");
+            sb.AppendLine($"        ProxyPassMatch \"^/(.*\\.php(/.*)?)$\" \"fcgi://127.0.0.1:{_config.Php.FcgiPort}/$1\"{FcgiReuse}");
             sb.AppendLine("        ProxyFCGISetEnvIf \"%{ENV:PHP_FCGI_SCRIPT} != ''\" SCRIPT_FILENAME \"%{ENV:PHP_FCGI_SCRIPT}\"");
             sb.AppendLine("    </IfModule>");
             sb.AppendLine();
@@ -645,7 +670,7 @@ session.gc_maxlifetime  = 1440
         sb.AppendLine("    # PHP via FastCGI (Windows-compatible)");
         sb.AppendLine("    <IfModule proxy_fcgi_module>");
         sb.AppendLine("        ProxyFCGIBackendType GENERIC");
-        sb.AppendLine($"        ProxyPassMatch \"^/(.*\\.php(/.*)?)$\" \"fcgi://127.0.0.1:{fcgiPort}/$1\" {FcgiReuse}");
+        sb.AppendLine($"        ProxyPassMatch \"^/(.*\\.php(/.*)?)$\" \"fcgi://127.0.0.1:{fcgiPort}/$1\"{FcgiReuse}");
         sb.AppendLine("        ProxyFCGISetEnvIf \"%{ENV:PHP_FCGI_SCRIPT} != ''\" SCRIPT_FILENAME \"%{ENV:PHP_FCGI_SCRIPT}\"");
         sb.AppendLine("    </IfModule>");
         sb.AppendLine();
@@ -779,7 +804,7 @@ session.gc_maxlifetime  = 1440
     # PHP via FastCGI (Windows-compatible)
     <IfModule proxy_fcgi_module>
         ProxyFCGIBackendType GENERIC
-        ProxyPassMatch ""^/(.*\.php(/.*)?)$"" ""fcgi://127.0.0.1:{fcgiPort}/$1"" {FcgiReuse}
+        ProxyPassMatch ""^/(.*\.php(/.*)?)$"" ""fcgi://127.0.0.1:{fcgiPort}/$1""{FcgiReuse}
         ProxyFCGISetEnvIf ""%{{ENV:PHP_FCGI_SCRIPT}} != ''"" SCRIPT_FILENAME ""%{{ENV:PHP_FCGI_SCRIPT}}""
     </IfModule>
 
@@ -817,7 +842,7 @@ session.gc_maxlifetime  = 1440
     # PHP via FastCGI (Windows-compatible)
     <IfModule proxy_fcgi_module>
         ProxyFCGIBackendType GENERIC
-        ProxyPassMatch ""^/(.*\.php(/.*)?)$"" ""fcgi://127.0.0.1:{fcgiPort}/$1"" {FcgiReuse}
+        ProxyPassMatch ""^/(.*\.php(/.*)?)$"" ""fcgi://127.0.0.1:{fcgiPort}/$1""{FcgiReuse}
         ProxyFCGISetEnvIf ""%{{ENV:PHP_FCGI_SCRIPT}} != ''"" SCRIPT_FILENAME ""%{{ENV:PHP_FCGI_SCRIPT}}""
     </IfModule>
 

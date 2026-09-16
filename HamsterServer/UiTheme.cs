@@ -17,6 +17,17 @@ internal static class UiTheme
     public static readonly Color StatusError = Color.FromArgb(192, 0, 0);
     public static readonly Color StatusStopped = SystemColors.GrayText;
 
+    // ── Taskbar / tray status dot ────────────────────────────────────────────
+    // The same four states as above, but drawn as a 4-6 px dot burned into the window icon
+    // (BuildStatusIcon composites it at 16/32/48 px). At that size the list colors above read as
+    // muddy brown-grey against whatever wallpaper or taskbar tint is behind them, so these are
+    // lifted in saturation. They are not interchangeable with Status* — those have to stay legible
+    // as text on SystemColors.Window, these have to stay legible as a dot on an arbitrary backdrop.
+    public static readonly Color TaskbarDotRunning = Color.FromArgb(39, 174, 96);
+    public static readonly Color TaskbarDotTransition = Color.FromArgb(243, 156, 18);
+    public static readonly Color TaskbarDotError = Color.FromArgb(231, 76, 60);
+    public static readonly Color TaskbarDotStopped = Color.FromArgb(149, 165, 166);
+
     // ── Log severity ─────────────────────────────────────────────────────────
     public static readonly Color LogNormal = SystemColors.WindowText;
     public static readonly Color LogInfo = Color.FromArgb(0, 0, 160);
@@ -92,6 +103,42 @@ internal static class UiTheme
         public const string Clear = "\uE894";
         public const string Warning = "\uE7BA";
         public const string Link = "\uE71B";
+        public const string Minimize = "\uE921";
+        public const string Exit = "\uE7E8";
+        public const string Info = "\uE946";
+        public const string Download = "\uE896";
+        public const string Code = "\uE943";
+        public const string Page = "\uE7C3";
+        // Two opposed arrows: a port is where traffic goes in and out. Deliberately not Server \u2014
+        // that one belongs to Apache itself, and sharing it made the two menus look alike.
+        public const string Ports = "\uE8AB";
+        public const string Accept = "\uE8FB";
+        public const string Star = "\uE734";
+        public const string SelectAll = "\uE8B3";
+        public const string ClearSelection = "\uE8E6";
+        public const string Wrench = "\uE90F";
+    }
+
+    /// <summary>
+    /// Puts a glyph on a plain <see cref="Button"/>. AutoSize is normally required rather than
+    /// cosmetic: the hand-written designer widths leave no room for a 16 px image, so a fixed
+    /// width clips the caption instead of widening the button.
+    /// <para>
+    /// Pass <paramref name="autoSize"/> = false for a button anchored Left|Right inside a
+    /// TableLayoutPanel cell — AutoSize overrides that stretch and the button would snap to its
+    /// text width, breaking a column that was laid out to line up with the rows above it. Such a
+    /// button needs its cell widened by hand instead.
+    /// </para>
+    /// </summary>
+    public static void ApplyGlyph(Button button, string glyph, Color color, bool autoSize = true)
+    {
+        button.Image = CreateGlyph(glyph, color);
+        button.ImageAlign = ContentAlignment.MiddleLeft;
+        button.TextAlign = ContentAlignment.MiddleLeft;
+        button.TextImageRelation = TextImageRelation.ImageBeforeText;
+        if (!autoSize) return;
+        button.AutoSize = true;
+        button.AutoSizeMode = AutoSizeMode.GrowAndShrink;
     }
 
     private static readonly string? IconFontName = ResolveIconFont();
@@ -139,7 +186,11 @@ internal static class UiTheme
         g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
         g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAliasGridFit;
 
-        using var font = new Font(IconFontName, size * 0.62F, FontStyle.Regular, GraphicsUnit.Pixel);
+        // 0.875 rather than the em-size the icon font is drawn for: at 1.0 several glyphs with
+        // full-height detail get clipped by the cell (Server loses its base, Star its point,
+        // Page and Wrench a corner). Below ~0.8 the strokes thin out and the glyph reads as
+        // washed out next to the label beside it — 0.62 was the original value and looked faded.
+        using var font = new Font(IconFontName, size * 0.875F, FontStyle.Regular, GraphicsUnit.Pixel);
         using var brush = new SolidBrush(color);
         using var format = new StringFormat
         {
