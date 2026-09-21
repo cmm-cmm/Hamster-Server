@@ -173,3 +173,25 @@ Kiểm chứng (ngày 2026-09-15, 4 worker):
 - Không tăng dần `TIME_WAIT`, working set hoặc số process ngoài giới hạn cấu hình.
 - P95/P99 không suy giảm quá 10% qua ba lần chạy cùng điều kiện.
 - Báo cáo benchmark phân biệt rõ attempt, success, failure và thời gian workload/server/client.
+
+### 7. Kiểm chứng từ log vận hành thật — 2026-09-21
+
+Log nhiều ngày của một máy đang dùng thật (PHP 8.5.10, 12 worker, `MaxRequests=0`, ngưỡng cố định 1024 MB, 3 cổng HTTP) cho 9 lần recycle liên tiếp, không lỗi, không crash:
+
+| Chỉ số | Kết quả |
+|---|---|
+| Thời gian chờ pool rảnh | 9–205 giây, trung bình 53 giây (giới hạn là 300 giây) |
+| Số lần bỏ lỡ vì pool bận quá lâu | 0 |
+| Bộ nhớ thu hồi mỗi lần | 527–608 MB, tức 51–58% |
+| Mức nền sau recycle | 440–499 MB, trung bình 482 MB → **40,2 MB mỗi worker** |
+| Tốc độ rò rỉ của ứng dụng | 2,3–12,7 MB/phút |
+
+Con số 40,2 MB/worker khớp với ~35 MB đo lúc chỉnh số worker, nên nó được đưa thành hằng số `ServerManager.WorkerBaselineMb` và dùng làm cơ sở cho ngưỡng tự động.
+
+**Hai vấn đề log này phơi bày, đều đã sửa:**
+
+1. **Guard "tối đa 3 restart/giờ" đo sai thứ.** Hai lần recycle cách nhau 51 và 47 phút là vận hành bình thường của một ứng dụng rò rỉ, nhưng chỉ cần lần thứ ba tới sớm hơn 8 phút là watchdog tự tắt cả tiếng — đúng lúc nó cần chạy nhất. Guard này cũng thừa: cooldown 10 phút đã giới hạn tối đa 6 lần/giờ. Nay thay bằng `CheckThresholdIsReachable`: đo mức nền **ngay sau** recycle và chỉ dừng khi mức nền đã đạt 80% ngưỡng — tức điều kiện duy nhất mà recycle không bao giờ giúp được. Trong log này tỉ lệ đó là 482/1024 = 47%, hoàn toàn lành mạnh.
+
+2. **Ngưỡng cố định không theo kịp số worker.** 1024 MB chỉ gấp 2,1 lần mức nền của 12 worker nên pool bị recycle 7 lần trong một ngày làm việc; cùng con số đó lại gấp 6 lần mức nền của 4 worker. Nay có chế độ **Auto** (bật mặc định): ngưỡng = `workers × 40 MB × 3`, sàn 512 MB, trần 50% RAM. Với cấu hình trong log, Auto cho 1440 MB — giãn khoảng cách giữa các lần recycle từ ~50 phút lên khoảng 2 giờ.
+
+Ngoài ra Settings nay hiển thị đề xuất số worker đọc từ phần cứng thật (`ServerManager.SuggestWorkers`): CPU đặt trần hữu ích (4–8), RAM đặt trần an toàn theo `workers × memoryLimit` trong 70% RAM, và nêu rõ giới hạn nào đang quyết định.

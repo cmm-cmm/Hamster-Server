@@ -148,6 +148,9 @@ public sealed class FastCgiSoakTests
         config.Php.Workers = 4;
         config.Php.MaxRequests = 0;
         // Below what four workers use at rest, so the very first sweep must trip.
+        // Auto is on by default and would derive 512 MB for four workers, well above what
+        // the pool weighs — pin it manually so the sweep actually has something to cross.
+        config.Php.MemoryRestartAuto = false;
         config.Php.MemoryRestartThreshold = 128;
 
         var server = new ServerManager(rootDir, config);
@@ -217,6 +220,9 @@ public sealed class FastCgiSoakTests
         config.Php.FcgiPort = 39104;
         config.Php.Workers = 4;
         config.Php.MaxRequests = 0;
+        // Auto is on by default and would derive 512 MB for four workers, well above what
+        // the pool weighs — pin it manually so the sweep actually has something to cross.
+        config.Php.MemoryRestartAuto = false;
         config.Php.MemoryRestartThreshold = 128;
 
         var server = new ServerManager(rootDir, config);

@@ -24,13 +24,86 @@ public partial class SettingsForm : Form
         chkAllowLanAccess.CheckedChanged += (_, _) => UpdateRiskHighlights();
         nudWorkers.ValueChanged += (_, _) => UpdateRiskHighlights();
         nudMemoryLimit.ValueChanged += (_, _) => UpdateRiskHighlights();
+        // The automatic threshold is derived from the worker count, and the manual warning is
+        // measured against it, so both follow either field changing.
+        nudWorkers.ValueChanged += (_, _) => UpdateMemoryRestartHint();
+        nudWorkers.ValueChanged += (_, _) => UpdateWorkersHint();
+        nudMemoryLimit.ValueChanged += (_, _) => UpdateWorkersHint();
+        nudMemoryRestart.ValueChanged += (_, _) => UpdateMemoryRestartHint();
+        chkMemoryRestartAuto.CheckedChanged += (_, _) => UpdateMemoryRestartHint();
         // A DPI change rescales the font; the column width is measured from it, so re-measure.
         clbExtensions.FontChanged += (_, _) => LayoutExtensionColumns();
         UpdateSslCertVisibility();
         UpdateOpcacheVisibility();
         UpdateRiskHighlights();
+        UpdateMemoryRestartHint();
+        UpdateWorkersHint();
         InitIcons();
         InitTooltips();
+    }
+
+    /// <summary>
+    /// Reports what this machine can carry, so the worker count is chosen against the hardware
+    /// rather than guessed. CPU caps the useful number; RAM caps the safe one, and on a small
+    /// machine RAM is the binding limit — which is worth saying out loud rather than only
+    /// colouring the field red after the fact.
+    /// </summary>
+    private void UpdateWorkersHint()
+    {
+        var advice = ServerManager.SuggestWorkers((int)nudMemoryLimit.Value);
+        int chosen = (int)nudWorkers.Value;
+
+        string machine = advice.TotalRamMb > 0
+            ? $"{advice.Cores} cores, {advice.TotalRamMb / 1024.0:0.#} GB RAM"
+            : $"{advice.Cores} cores";
+        string why = advice.RamLimited ? ", RAM-limited" : "";
+
+        lblWorkersHint.Text = $"Suggested: {advice.Workers}  ({machine}{why})";
+        lblWorkersHint.ForeColor = chosen > advice.Workers
+            ? UiTheme.StatusTransition
+            : SystemColors.GrayText;
+    }
+
+    /// <summary>
+    /// Shows what the pool restart threshold will actually be, because the number on its own says
+    /// nothing useful: whether it is generous or punishing depends entirely on the worker count.
+    /// In Auto the box is disabled and shows the derived value; typed by hand, the field is
+    /// highlighted when it sits so close to the pool's floor that recycling would be constant.
+    /// </summary>
+    private void UpdateMemoryRestartHint()
+    {
+        int workers = (int)nudWorkers.Value;
+        int floor = workers * ServerManager.WorkerBaselineMb;
+        int auto = ServerManager.AutoMemoryThresholdMb(workers);
+        bool isAuto = chkMemoryRestartAuto.Checked;
+
+        nudMemoryRestart.Enabled = !isAuto;
+        if (isAuto)
+        {
+            nudMemoryRestart.Value = Math.Clamp(auto, nudMemoryRestart.Minimum, nudMemoryRestart.Maximum);
+            lblMemoryRestartHint.Text =
+                $"= {auto} MB  ({workers} × {ServerManager.WorkerBaselineMb} MB at rest × {ServerManager.AutoThresholdFactor})";
+            lblMemoryRestartHint.ForeColor = SystemColors.GrayText;
+            nudMemoryRestart.BackColor = UiTheme.FieldNormal;
+            return;
+        }
+
+        int chosen = (int)nudMemoryRestart.Value;
+        if (chosen == 0)
+        {
+            lblMemoryRestartHint.Text = "0 = never restart; reclaim by hand.";
+            lblMemoryRestartHint.ForeColor = SystemColors.GrayText;
+            nudMemoryRestart.BackColor = UiTheme.FieldNormal;
+            return;
+        }
+
+        // Under twice the floor the pool is recycled every time it does any real work.
+        bool tooTight = chosen < floor * 2;
+        lblMemoryRestartHint.Text = tooTight
+            ? $"Low — {floor} MB at rest. Suggest {auto} MB."
+            : $"~{floor} MB at rest. Suggested: {auto} MB.";
+        lblMemoryRestartHint.ForeColor = tooTight ? UiTheme.StatusTransition : SystemColors.GrayText;
+        nudMemoryRestart.BackColor = tooTight ? UiTheme.FieldWarning : UiTheme.FieldNormal;
     }
 
     /// <summary>
@@ -86,9 +159,14 @@ public partial class SettingsForm : Form
         tt.SetToolTip(chkGzip, "Compress text responses (HTML, CSS, JS) to reduce bandwidth.");
         tt.SetToolTip(chkCache, "Send Expires headers so browsers cache static assets locally.");
         tt.SetToolTip(chkBrotli, "Brotli compression (15-25% smaller than Gzip). Requires mod_brotli.so in apache/Apache24/modules/.");
-        tt.SetToolTip(nudWorkers, "PHP-CGI worker processes. Each costs ~35 MB; 4-8 already saturates a dev machine.");
+        tt.SetToolTip(nudWorkers,
+            "PHP-CGI worker processes. The suggestion beside the box is the lower of what the CPU "
+            + "can use (4-8, measured) and what RAM allows at the configured memory limit.");
         tt.SetToolTip(nudMaxRequests, "Requests before a worker recycles. 0 = never recycle (required for FastCGI connection reuse).");
         tt.SetToolTip(nudMemoryRestart, "Restart the whole PHP pool once it uses this much memory, and only while it is idle. 0 = never.");
+        tt.SetToolTip(chkMemoryRestartAuto,
+            "Derive the threshold from the worker count instead of fixing it. A number that suits "
+            + "4 workers leaves 12 workers being recycled every few minutes.");
         tt.SetToolTip(cboTimezone, "PHP date.timezone using an IANA identifier.");
         tt.SetToolTip(chkUseBundledCaCertificate,
             $"Configure cURL and OpenSSL to use {Path.Combine(_rootDir, "ssl", "cacert.pem")} for HTTPS requests.");
@@ -335,6 +413,7 @@ public partial class SettingsForm : Form
         nudWorkers.Value = _config.Php.Workers;
         nudMaxRequests.Value = _config.Php.MaxRequests;
         nudMemoryRestart.Value = _config.Php.MemoryRestartThreshold;
+        chkMemoryRestartAuto.Checked = _config.Php.MemoryRestartAuto;
         nudMemoryLimit.Value = _config.Php.MemoryLimit;
         nudMaxExecTime.Value = _config.Php.MaxExecutionTime;
         chkOpcache.Checked = _config.Php.EnableOpcache;
@@ -394,7 +473,8 @@ public partial class SettingsForm : Form
         // Deliberately not part of NeedsPhpRestart: ServerManager re-reads the threshold through
         // ApplyPhpMemorySettings, so changing it must not bounce a healthy pool.
         bool memoryWatchdogChanged =
-            _config.Php.MemoryRestartThreshold != (int)nudMemoryRestart.Value;
+            _config.Php.MemoryRestartThreshold != (int)nudMemoryRestart.Value ||
+            _config.Php.MemoryRestartAuto != chkMemoryRestartAuto.Checked;
 
         ConfigChanged = NeedsApacheRestart || NeedsPhpRestart || generalChanged || memoryWatchdogChanged;
 
@@ -415,6 +495,7 @@ public partial class SettingsForm : Form
         _config.Php.FcgiPort = (int)nudFcgiPort.Value;
         _config.Php.Workers = (int)nudWorkers.Value;
         _config.Php.MaxRequests = (int)nudMaxRequests.Value;
+        _config.Php.MemoryRestartAuto = chkMemoryRestartAuto.Checked;
         _config.Php.MemoryRestartThreshold = (int)nudMemoryRestart.Value;
         _config.Php.MemoryLimit = (int)nudMemoryLimit.Value;
         _config.Php.MaxExecutionTime = (int)nudMaxExecTime.Value;
@@ -433,28 +514,26 @@ public partial class SettingsForm : Form
     {
         bool isProd = (ServerMode)cboServerMode.SelectedItem! == ServerMode.Production;
 
-        // Worker count is capped, not scaled by core count: each php-cgi worker is a process
-        // costing ~35 MB working set, and a load ramp on a 12-core box showed 24 workers idling at
-        // 891 MB while serving FEWER req/s at 16-way concurrency than 8 workers at 322 MB. Keep
-        // these in step with PhpSettings.Workers' own default.
+        // Worker count comes from the same advice shown beside the field, so the button and the
+        // hint can never disagree: capped by what the CPU can use, then cut to what RAM allows.
         // MaxRequests stays 0 in both modes so FastCGI connection pooling can be emitted — see
         // ApacheConfigWriter.FcgiReuse and doc/PERFORMANCE_EVALUATION.md.
         if (isProd)
         {
-            nudWorkers.Value = Math.Clamp(Environment.ProcessorCount, 8, 16);
-            nudMaxRequests.Value = 0;
             nudOpcacheMemory.Value = 256;
             nudKeepAlive.Value = 5;
             nudMaxClients.Value = Math.Max(500, Math.Min(2000, Environment.ProcessorCount * 50));
         }
         else
         {
-            nudWorkers.Value = Math.Clamp(Environment.ProcessorCount, 4, 8);
-            nudMaxRequests.Value = 0;
             nudOpcacheMemory.Value = 128;
             nudKeepAlive.Value = 15;
             nudMaxClients.Value = 256;
         }
+
+        nudMaxRequests.Value = 0;
+        // After the memory limit, since the advice is measured against it.
+        nudWorkers.Value = ServerManager.SuggestWorkers((int)nudMemoryLimit.Value).Workers;
 
         // Native buttons ignore BackColor under visual styles, so confirm with the caption only.
         var origText = btnApplyModeDefaults.Text;

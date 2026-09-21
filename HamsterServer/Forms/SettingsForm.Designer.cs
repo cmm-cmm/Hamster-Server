@@ -48,10 +48,15 @@ partial class SettingsForm
         nudFcgiPort = new NumericUpDown();
         lblCapWorkers = new Label();
         nudWorkers = new NumericUpDown();
+        flpWorkers = new FlowLayoutPanel();
+        lblWorkersHint = new Label();
         lblCapMaxRequests = new Label();
         nudMaxRequests = new NumericUpDown();
         lblCapMemoryRestart = new Label();
         nudMemoryRestart = new NumericUpDown();
+        flpMemoryRestart = new FlowLayoutPanel();
+        chkMemoryRestartAuto = new CheckBox();
+        lblMemoryRestartHint = new Label();
         lblMemoryWarning = new Label();
         grpPhpLimits = new GroupBox();
         tblPhpLimits = new TableLayoutPanel();
@@ -113,6 +118,8 @@ partial class SettingsForm
         tblPhpRoot.SuspendLayout();
         grpPhpFastCgi.SuspendLayout();
         tblPhpFastCgi.SuspendLayout();
+        flpMemoryRestart.SuspendLayout();
+        flpWorkers.SuspendLayout();
         ((System.ComponentModel.ISupportInitialize)nudFcgiPort).BeginInit();
         ((System.ComponentModel.ISupportInitialize)nudWorkers).BeginInit();
         ((System.ComponentModel.ISupportInitialize)nudMaxRequests).BeginInit();
@@ -495,11 +502,11 @@ partial class SettingsForm
         tblPhpFastCgi.Controls.Add(lblCapFcgiPort, 0, 0);
         tblPhpFastCgi.Controls.Add(nudFcgiPort, 1, 0);
         tblPhpFastCgi.Controls.Add(lblCapWorkers, 0, 1);
-        tblPhpFastCgi.Controls.Add(nudWorkers, 1, 1);
+        tblPhpFastCgi.Controls.Add(flpWorkers, 1, 1);
         tblPhpFastCgi.Controls.Add(lblCapMaxRequests, 0, 2);
         tblPhpFastCgi.Controls.Add(nudMaxRequests, 1, 2);
         tblPhpFastCgi.Controls.Add(lblCapMemoryRestart, 0, 3);
-        tblPhpFastCgi.Controls.Add(nudMemoryRestart, 1, 3);
+        tblPhpFastCgi.Controls.Add(flpMemoryRestart, 1, 3);
         tblPhpFastCgi.Controls.Add(lblMemoryWarning, 0, 4);
         tblPhpFastCgi.Dock = DockStyle.Fill;
         tblPhpFastCgi.Location = new Point(8, 20);
@@ -526,13 +533,72 @@ partial class SettingsForm
         //
         // nudMemoryRestart
         //
-        nudMemoryRestart.Anchor = AnchorStyles.Left;
         nudMemoryRestart.Increment = new decimal(new int[] { 128, 0, 0, 0 });
-        nudMemoryRestart.Location = new Point(153, 94);
+        nudMemoryRestart.Location = new Point(3, 3);
+        nudMemoryRestart.Margin = new Padding(3, 3, 0, 3);
         nudMemoryRestart.Maximum = new decimal(new int[] { 65536, 0, 0, 0 });
         nudMemoryRestart.Name = "nudMemoryRestart";
         nudMemoryRestart.Size = new Size(100, 23);
         nudMemoryRestart.TabIndex = 7;
+        //
+        // flpWorkers
+        //
+        flpWorkers.Controls.Add(nudWorkers);
+        flpWorkers.Controls.Add(lblWorkersHint);
+        flpWorkers.Dock = DockStyle.Fill;
+        flpWorkers.Location = new Point(153, 33);
+        flpWorkers.Margin = new Padding(3, 3, 3, 0);
+        flpWorkers.Name = "flpWorkers";
+        flpWorkers.Size = new Size(398, 27);
+        flpWorkers.TabIndex = 3;
+        flpWorkers.WrapContents = false;
+        //
+        // lblWorkersHint
+        //
+        lblWorkersHint.Anchor = AnchorStyles.Left;
+        lblWorkersHint.AutoSize = true;
+        lblWorkersHint.ForeColor = SystemColors.GrayText;
+        lblWorkersHint.Location = new Point(111, 5);
+        lblWorkersHint.Margin = new Padding(8, 5, 0, 0);
+        lblWorkersHint.Name = "lblWorkersHint";
+        lblWorkersHint.Size = new Size(0, 15);
+        lblWorkersHint.TabIndex = 0;
+        //
+        // flpMemoryRestart
+        //
+        flpMemoryRestart.Controls.Add(nudMemoryRestart);
+        flpMemoryRestart.Controls.Add(chkMemoryRestartAuto);
+        flpMemoryRestart.Controls.Add(lblMemoryRestartHint);
+        flpMemoryRestart.Dock = DockStyle.Fill;
+        flpMemoryRestart.Location = new Point(153, 93);
+        flpMemoryRestart.Margin = new Padding(3, 3, 3, 0);
+        flpMemoryRestart.Name = "flpMemoryRestart";
+        flpMemoryRestart.Size = new Size(398, 27);
+        flpMemoryRestart.TabIndex = 7;
+        flpMemoryRestart.WrapContents = false;
+        //
+        // chkMemoryRestartAuto
+        //
+        chkMemoryRestartAuto.Anchor = AnchorStyles.Left;
+        chkMemoryRestartAuto.AutoSize = true;
+        chkMemoryRestartAuto.Location = new Point(109, 3);
+        chkMemoryRestartAuto.Margin = new Padding(6, 3, 0, 3);
+        chkMemoryRestartAuto.Name = "chkMemoryRestartAuto";
+        chkMemoryRestartAuto.Size = new Size(52, 19);
+        chkMemoryRestartAuto.TabIndex = 0;
+        chkMemoryRestartAuto.Text = "Auto";
+        chkMemoryRestartAuto.UseVisualStyleBackColor = true;
+        //
+        // lblMemoryRestartHint
+        //
+        lblMemoryRestartHint.Anchor = AnchorStyles.Left;
+        lblMemoryRestartHint.AutoSize = true;
+        lblMemoryRestartHint.ForeColor = SystemColors.GrayText;
+        lblMemoryRestartHint.Location = new Point(167, 5);
+        lblMemoryRestartHint.Margin = new Padding(8, 5, 0, 0);
+        lblMemoryRestartHint.Name = "lblMemoryRestartHint";
+        lblMemoryRestartHint.Size = new Size(0, 15);
+        lblMemoryRestartHint.TabIndex = 1;
         //
         // lblMemoryWarning
         //
@@ -581,7 +647,7 @@ partial class SettingsForm
         //
         // nudWorkers
         //
-        nudWorkers.Anchor = AnchorStyles.Left;
+        nudWorkers.Margin = new Padding(3, 3, 0, 3);
         nudWorkers.Location = new Point(153, 34);
         nudWorkers.Maximum = new decimal(new int[] { 256, 0, 0, 0 });
         nudWorkers.Minimum = new decimal(new int[] { 1, 0, 0, 0 });
@@ -1123,13 +1189,13 @@ partial class SettingsForm
         AutoScaleDimensions = new SizeF(7F, 15F);
         AutoScaleMode = AutoScaleMode.Font;
         CancelButton = btnCancel;
-        ClientSize = new Size(624, 760);
+        ClientSize = new Size(680, 760);
         Controls.Add(tabControl);
         Controls.Add(panButtons);
         FormBorderStyle = FormBorderStyle.Sizable;
         MaximizeBox = false;
         MinimizeBox = false;
-        MinimumSize = new Size(600, 720);
+        MinimumSize = new Size(660, 720);
         Name = "SettingsForm";
         Padding = new Padding(10);
         ShowIcon = false;
@@ -1154,6 +1220,10 @@ partial class SettingsForm
         tabPhp.ResumeLayout(false);
         tblPhpRoot.ResumeLayout(false);
         grpPhpFastCgi.ResumeLayout(false);
+        flpWorkers.ResumeLayout(false);
+        flpWorkers.PerformLayout();
+        flpMemoryRestart.ResumeLayout(false);
+        flpMemoryRestart.PerformLayout();
         tblPhpFastCgi.ResumeLayout(false);
         tblPhpFastCgi.PerformLayout();
         ((System.ComponentModel.ISupportInitialize)nudFcgiPort).EndInit();
@@ -1222,10 +1292,15 @@ partial class SettingsForm
     private NumericUpDown nudFcgiPort;
     private Label lblCapWorkers;
     private NumericUpDown nudWorkers;
+    private FlowLayoutPanel flpWorkers;
+    private Label lblWorkersHint;
     private Label lblCapMaxRequests;
     private NumericUpDown nudMaxRequests;
     private Label lblCapMemoryRestart;
     private NumericUpDown nudMemoryRestart;
+    private FlowLayoutPanel flpMemoryRestart;
+    private CheckBox chkMemoryRestartAuto;
+    private Label lblMemoryRestartHint;
     private Label lblMemoryWarning;
     private GroupBox grpPhpLimits;
     private TableLayoutPanel tblPhpLimits;
