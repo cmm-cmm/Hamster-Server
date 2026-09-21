@@ -116,8 +116,18 @@ public class PhpSettings
     public int MaxRequests { get; set; } = 0;
 
     /// <summary>
+    /// Tự tính ngưỡng restart theo số worker thay vì dùng con số cố định. Bật mặc định vì một
+    /// ngưỡng cố định không theo kịp khi người dùng đổi Workers: 1024 MB là gấp 6 lần mức nền của
+    /// 4 worker nhưng chỉ gấp 2 lần của 12 worker, và ở mức gấp 2 thì pool bị recycle liên tục.
+    /// Xem <c>ServerManager.EffectiveMemoryThresholdMb</c>.
+    /// </summary>
+    [JsonPropertyName("memoryRestartAuto")]
+    public bool MemoryRestartAuto { get; set; } = true;
+
+    /// <summary>
     /// Tổng working set (MB) của cả pool php-cgi mà khi vượt qua, Hamster Server sẽ khởi động lại
     /// pool — nhưng chỉ vào lúc pool đang rảnh, không có request nào đang chạy. <c>0</c> = tắt.
+    /// Bị bỏ qua khi <see cref="MemoryRestartAuto"/> đang bật.
     /// <para>
     /// Đây là đối trọng của <see cref="MaxRequests"/> = 0: khi worker không bao giờ tự recycle thì
     /// không còn cơ chế nào giải phóng bộ nhớ tích lũy, nên việc dọn dẹp chuyển sang đo bộ nhớ thật

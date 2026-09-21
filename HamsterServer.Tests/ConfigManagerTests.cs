@@ -210,6 +210,8 @@ public sealed class ConfigManagerTests
 
     // 0 disables the memory watchdog. A small positive value is raised to a floor instead: a
     // threshold below what a freshly started pool already uses would restart it forever.
+    // Auto is off here so the stored number is the one that counts; with Auto on, 0 means "fall
+    // back to a usable manual value", which is covered separately below.
     [DataTestMethod]
     [DataRow(0, 0)]
     [DataRow(-1, 0)]
@@ -222,7 +224,7 @@ public sealed class ConfigManagerTests
         var configDir = Path.Combine(root.Path, "config");
         Directory.CreateDirectory(configDir);
         File.WriteAllText(Path.Combine(configDir, "hamster-server.json"),
-            "{\"php\":{\"memoryRestartThreshold\":" + stored + "}}");
+            "{\"php\":{\"memoryRestartAuto\":false,\"memoryRestartThreshold\":" + stored + "}}");
 
         var config = new ConfigManager(root.Path).Load();
 
@@ -242,6 +244,114 @@ public sealed class ConfigManagerTests
 
         Assert.AreEqual(1024, config.Php.MemoryRestartThreshold,
             "Without recycling, an older config has nothing reclaiming leaked memory.");
+    }
+
+    // The automatic threshold has to scale with the worker count; a fixed number cannot. Real
+    // operational logs show a 12-worker pool settling at 482 MB after each recycle, so a 1024 MB
+    // fixed threshold was only 2.1x its floor and recycled the pool seven times in a working day.
+    [DataTestMethod]
+    [DataRow(4, 512)]      // 4 x 40 x 3 = 480, lifted to the 512 MB floor
+    [DataRow(8, 960)]
+    [DataRow(12, 1440)]    // comfortably above the 482 MB measured in production
+    [DataRow(24, 2880)]
+    public void AutoMemoryThreshold_ScalesWithWorkerCount(int workers, int expected)
+    {
+        int actual = ServerManager.AutoMemoryThresholdMb(workers);
+
+        // The result is also capped at half of system RAM, so only assert the formula when that
+        // cap is not the binding constraint on the machine running the test.
+        long halfRamMb = GC.GetGCMemoryInfo().TotalAvailableMemoryBytes / 1024 / 1024 / 2;
+        if (expected <= halfRamMb)
+            Assert.AreEqual(expected, actual);
+        else
+            Assert.IsTrue(actual <= halfRamMb, $"{actual} MB exceeds half of RAM ({halfRamMb} MB).");
+    }
+
+    [TestMethod]
+    public void AutoMemoryThreshold_StaysAboveTheFloorItIsDerivedFrom()
+    {
+        foreach (int workers in new[] { 1, 4, 8, 12, 32, 256 })
+        {
+            int floor = workers * ServerManager.WorkerBaselineMb;
+            int auto = ServerManager.AutoMemoryThresholdMb(workers);
+            Assert.IsTrue(auto > floor,
+                $"{workers} workers: threshold {auto} MB is not above the {floor} MB floor, " +
+                "so the pool could never get under it.");
+        }
+    }
+
+    // CPU decides the useful ceiling (4-8, from the measured load ramp); RAM decides the safe one.
+    [TestMethod]
+    public void SuggestWorkers_NeverExceedsWhatTheCpuCanUse()
+    {
+        var advice = ServerManager.SuggestWorkers(memoryLimitMb: 512);
+
+        Assert.IsTrue(advice.Workers is >= 1 and <= 8,
+            $"Suggested {advice.Workers} workers; the measured ceiling is 8 however many cores exist.");
+        Assert.AreEqual(Environment.ProcessorCount, advice.Cores);
+    }
+
+    // An absurd per-worker memory limit has to pull the suggestion down to 1, and say why.
+    [TestMethod]
+    public void SuggestWorkers_IsCutDownWhenRamCannotCoverTheMemoryLimit()
+    {
+        long totalRamMb = ServerManager.TotalRamMb;
+        if (totalRamMb <= 0) Assert.Inconclusive("Total RAM could not be read on this machine.");
+
+        var advice = ServerManager.SuggestWorkers(memoryLimitMb: (int)totalRamMb);
+
+        Assert.AreEqual(1, advice.Workers, "One worker at the full size of RAM is already over budget.");
+        Assert.IsTrue(advice.RamLimited, "The advice should report RAM as the binding limit.");
+    }
+
+    [TestMethod]
+    public void SuggestWorkers_ReportsCpuAsTheLimitWhenRamIsPlentiful()
+    {
+        // 1 MB per worker cannot exhaust any machine's RAM, so CPU must be the constraint.
+        var advice = ServerManager.SuggestWorkers(memoryLimitMb: 1);
+
+        Assert.IsFalse(advice.RamLimited);
+        Assert.AreEqual(Math.Clamp(Environment.ProcessorCount, 4, 8), advice.Workers);
+    }
+
+    [TestMethod]
+    public void Load_EnablesAutoThresholdByDefault()
+    {
+        using var root = new TestDirectory();
+
+        var config = new ConfigManager(root.Path).Load();
+
+        Assert.IsTrue(config.Php.MemoryRestartAuto);
+    }
+
+    // Turning Auto off has to leave a usable number behind, not 0 — which would silently disable
+    // the watchdog rather than hand back manual control.
+    [TestMethod]
+    public void Load_KeepsAUsableThresholdWhenAutoIsOnAndTheStoredValueIsZero()
+    {
+        using var root = new TestDirectory();
+        var configDir = Path.Combine(root.Path, "config");
+        Directory.CreateDirectory(configDir);
+        File.WriteAllText(Path.Combine(configDir, "hamster-server.json"),
+            """{"php":{"memoryRestartAuto":true,"memoryRestartThreshold":0}}""");
+
+        var config = new ConfigManager(root.Path).Load();
+
+        Assert.AreEqual(1024, config.Php.MemoryRestartThreshold);
+    }
+
+    [TestMethod]
+    public void Load_KeepsZeroAsDisabledWhenAutoIsOff()
+    {
+        using var root = new TestDirectory();
+        var configDir = Path.Combine(root.Path, "config");
+        Directory.CreateDirectory(configDir);
+        File.WriteAllText(Path.Combine(configDir, "hamster-server.json"),
+            """{"php":{"memoryRestartAuto":false,"memoryRestartThreshold":0}}""");
+
+        var config = new ConfigManager(root.Path).Load();
+
+        Assert.AreEqual(0, config.Php.MemoryRestartThreshold);
     }
 
     [TestMethod]
