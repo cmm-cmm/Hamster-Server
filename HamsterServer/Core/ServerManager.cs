@@ -1276,7 +1276,7 @@ public class ServerManager : IDisposable
     /// Process.MainModule answers the same question, but it enumerates every loaded module of
     /// the target — with a couple of dozen PHP workers that turned a stop into a ~19 s wait.
     /// </summary>
-    private static string? TryGetProcessImagePath(int pid)
+    internal static string? TryGetProcessImagePath(int pid)
     {
         IntPtr handle = OpenProcess(ProcessQueryLimitedInformation, false, pid);
         if (handle == IntPtr.Zero) return null;

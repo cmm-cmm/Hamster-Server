@@ -118,8 +118,46 @@ public partial class SettingsForm : Form
     private void InitIcons()
     {
         UiTheme.ApplyGlyph(btnApplyModeDefaults, UiTheme.Glyph.Wrench, UiTheme.AccentNeutral);
-        // Same glyph and colour as Tools > PHP Configuration, which this button opens.
-        UiTheme.ApplyGlyph(btnOpenPhpConfig, UiTheme.Glyph.Page, UiTheme.LogPhp);
+        // Same glyph and colour as Tools > PHP Configuration, which this button opens. AutoSize
+        // wrapped its caption onto two lines inside the auto-sized flow panel, cutting it off — give
+        // it a fixed one-line width instead (the designer value scales with the font).
+        UiTheme.ApplyGlyph(btnOpenPhpConfig, UiTheme.Glyph.Page, UiTheme.LogPhp, autoSize: false);
+        btnOpenPhpConfig.Size = new Size(230, 30);
+
+        // Each tab carries the glyph and colour its subject has everywhere else in the app: Apache's
+        // server, PHP's code brackets, the cog for general behaviour.
+        var tabIcons = new ImageList(components) { ImageSize = UiTheme.IconBox, ColorDepth = ColorDepth.Depth32Bit };
+        tabIcons.Images.Add(UiTheme.CreateGlyph(UiTheme.Glyph.Server, UiTheme.LogApache));
+        tabIcons.Images.Add(UiTheme.CreateGlyph(UiTheme.Glyph.Code, UiTheme.LogPhp));
+        tabIcons.Images.Add(UiTheme.CreateGlyph(UiTheme.Glyph.Settings, UiTheme.AccentNeutral));
+        tabControl.ImageList = tabIcons;
+        tabControl.Padding = new Point(12, 5);
+        tabApache.ImageIndex = 0;
+        tabPhp.ImageIndex = 1;
+        tabGeneral.ImageIndex = 2;
+
+        AddIntro(tabApache, "How Apache answers requests: its name, connection limits, compression and HTTPS. " +
+                            "Ports and virtual hosts have their own windows under Tools.");
+        AddIntro(tabPhp, "How the PHP worker pool runs. Settings that end up in php.ini (memory limit, " +
+                         "upload size, timezone, extensions) are in PHP Configuration.");
+        AddIntro(tabGeneral, "Development or production defaults, what happens when Windows starts, " +
+                             "and whether other computers may connect.");
+    }
+
+    /// <summary>
+    /// One grey sentence at the top of a tab saying what it is for. Added after the tab's Fill layout,
+    /// so it docks first and pushes the layout down instead of overlapping it.
+    /// </summary>
+    private void AddIntro(TabPage tab, string text)
+    {
+        tab.Controls.Add(new Label
+        {
+            Dock = DockStyle.Top,
+            ForeColor = SystemColors.GrayText,
+            Height = 42,
+            Padding = new Padding(4, 0, 4, 8),
+            Text = text
+        });
     }
 
     /// <summary>

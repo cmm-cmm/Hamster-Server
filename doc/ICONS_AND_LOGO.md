@@ -223,12 +223,20 @@ Mỗi glyph là một chuỗi path SVG trong `UiTheme.Glyph`. Cột "Thay cho" l
 | | Icon dòng | Đang dùng · đang dùng nhưng có bản mới · đã cài · có thể cài | chấm · Download · chấm · Download | StatusRunning · StatusTransition · StatusStopped · AccentAction |
 | Cửa sổ chính | `lblStatusPhpUpdate` (thanh trạng thái) | PHP x.y.z available | Download | StatusTransition |
 | Ports | `btnAdd` / `btnEdit` / `btnRemove` | Add… / Edit… / Remove | Add / Edit / Delete | StatusRunning / AccentAction / StatusError |
+| | `btnRecheck` / `btnSysRefresh` | Check availability / Refresh | Refresh | AccentAction |
+| | `btnSysRelevant` | Hamster & conflicts only | Warning | StatusTransition |
+| | Tab icons | Apache ports · System ports · (có xung đột) | Ports · Server · Warning | LogApache · AccentNeutral · StatusError |
+| | Icon dòng System ports | Hamster Server · chặn Hamster · chương trình khác | chấm · Warning · chấm | StatusRunning · StatusError · StatusStopped |
+| | Menu chuột phải System ports | Open in browser / Open program folder / Copy details | World / Folder / Page | AccentHttp / StatusTransition / AccentNeutral |
 | | Menu chuột phải `ctxEdit` / `ctxRemove` | Edit… / Remove | Edit / Delete | AccentAction / StatusError |
 | | Icon dòng (`_portIcons`) | HTTP · HTTPS · HTTP tắt · HTTPS tắt | Unlock · Lock · Unlock · Lock | AccentHttp · AccentHttps · StatusStopped · StatusStopped |
 | Virtual Hosts | `btnAdd` / `btnEdit` / `btnDelete` | Add… / Edit… / Delete | Add / Edit / Delete | StatusRunning / AccentAction / StatusError |
 | | Menu chuột phải `ctxEdit` / `ctxDelete` | Edit… / Delete | Edit / Delete | AccentAction / StatusError |
+| | `btnToggle` (+ menu chuột phải) | Enable / Disable | Play / Stop | StatusRunning / StatusError |
+| | `btnBrowse` / `btnOpenFolder` (+ menu chuột phải) | Open in browser / Open folder | World / Folder | AccentHttp / StatusTransition |
 | | Icon dòng (`_vhostIcons`) | Đang bật · Đã tắt · Proxy (Hyperf) | World · World · Link | StatusRunning · StatusStopped · AccentHttp |
 | VHost Dialog | `btnEnableExtensions` | Enable extensions | Accept | AccentAction |
+| Settings | Tab icons | Apache · PHP · General | Server · Code · Settings | LogApache · LogPhp · AccentNeutral |
 | Settings › PHP | `btnOpenPhpConfig` | Open PHP Configuration… | Page | LogPhp |
 | Settings › General | `btnApplyModeDefaults` | Apply mode defaults | Wrench | AccentNeutral |
 | PHP Configuration | `btnPhpSaveRestart` | Save & restart PHP | Refresh | StatusTransition |
