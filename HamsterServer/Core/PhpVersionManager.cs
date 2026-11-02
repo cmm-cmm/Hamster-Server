@@ -489,7 +489,7 @@ public sealed partial class PhpVersionManager
     private static HttpClient CreateHttpClient()
     {
         var client = new HttpClient { Timeout = TimeSpan.FromMinutes(15) };
-        client.DefaultRequestHeaders.UserAgent.ParseAdd("HamsterServer-PHP-Version-Manager/1.3");
+        client.DefaultRequestHeaders.UserAgent.ParseAdd("HamsterServer-PHP-Version-Manager/1.4");
         return client;
     }
 
