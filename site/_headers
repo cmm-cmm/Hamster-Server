@@ -1,7 +1,8 @@
 # Same policy as the other konexforge.com sites. Cloudflare injects scripts of its own on this
 # zone (Bot Fight Mode's JavaScript detections, Web Analytics); it copies the nonce below onto
-# them, which Cloudflare recommends over 'unsafe-inline'. The site itself runs no script — the
-# only <script> is JSON-LD data, which a CSP does not block.
+# them, which Cloudflare recommends over 'unsafe-inline'. The site's own script is
+# /assets/demo.js, served from 'self'; the other <script> blocks are JSON-LD data, which a CSP
+# does not block.
 /*
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
@@ -12,6 +13,9 @@
   Cache-Control: public, max-age=0, must-revalidate
 
 /
+  Cache-Control: public, max-age=0, must-revalidate
+
+/vi/
   Cache-Control: public, max-age=0, must-revalidate
 
 /llms*.txt

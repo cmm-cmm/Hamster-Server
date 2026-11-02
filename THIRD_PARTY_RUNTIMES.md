@@ -7,10 +7,12 @@ Executable runtime artifacts are tracked with Git LFS. Install Git LFS before cl
 | Runtime | Source archive | SHA-256 |
 |---|---|---|
 | Apache 2.4.68 VS18 Win64 | [Apache Lounge](https://www.apachelounge.com/download/VS18/binaries/httpd-2.4.68-260617-Win64-VS18.zip) | `eac38a9f8d21b6ba0817cd1576a3d291cc771afd3c6a210d120bdea6f4aa4aeb` |
-| PHP 8.2.33 NTS VS16 x64 | [PHP for Windows](https://windows.php.net/downloads/releases/php-8.2.33-nts-Win32-vs16-x64.zip) | `d0bd189522fa50255ee94ed4b340ed4330f5ae33a90a74205275b0f0b221d388` |
-| PHP 8.3.33 NTS VS16 x64 | [PHP for Windows](https://windows.php.net/downloads/releases/php-8.3.33-nts-Win32-vs16-x64.zip) | `534399107056313246f424adbbb7937337e40fbbf6aa7bc26287ba9cfd2e4a2a` |
-| PHP 8.4.24 NTS VS17 x64 | [PHP for Windows](https://windows.php.net/downloads/releases/php-8.4.24-nts-Win32-vs17-x64.zip) | `86470a30cbbaeafb259e727dfa5cd336f2f3f0a462cd6f8e3eac00fdbded13cb` |
-| PHP 8.5.9 NTS VS17 x64 | [PHP for Windows](https://windows.php.net/downloads/releases/php-8.5.9-nts-Win32-vs17-x64.zip) | `516c2d72231bd035c8a910120834add0ad208098b790b4909b2cbeb93ce135fc` |
+| PHP 8.2.35-1 NTS VS16 x64 | [PHP for Windows](https://downloads.php.net/~windows/releases/php-8.2.35-1-nts-Win32-vs16-x64.zip) | `ebe75134c03869826cb1714d31fd5eb96afefa6d9fd35d786971c03020e7bce2` |
+| PHP 8.3.36-1 NTS VS16 x64 | [PHP for Windows](https://downloads.php.net/~windows/releases/php-8.3.36-1-nts-Win32-vs16-x64.zip) | `1a097d52b7a68622cdc723073b61cc70caf79c941218ff65b2d8441dbc6b10d4` |
+| PHP 8.4.27-1 NTS VS17 x64 | [PHP for Windows](https://downloads.php.net/~windows/releases/php-8.4.27-1-nts-Win32-vs17-x64.zip) | `dbae154a0a89791f36c3d48e68bae797878333e7d6cb5721e74617de59b63ab7` |
+| PHP 8.5.12-1 NTS VS17 x64 | [PHP for Windows](https://downloads.php.net/~windows/releases/php-8.5.12-1-nts-Win32-vs17-x64.zip) | `2a36a2edcb7a5b9252f638fd5e4cf84d7f6e066092654220dc0b63e5cf4e9723` |
+
+These builds contain the fixes for CVE-2026-109618 and CVE-2026-109619 ("PHP2Shell", unauthenticated remote code execution, fixed in 8.2.35, 8.3.36, 8.4.27 and 8.5.12). The `-1` suffix is the windows.php.net rebuild of that release; folders keep the catalog's name verbatim. Never bundle a patch below those versions.
 
 PHP 8.2 receives security fixes only through 31 December 2026. Remove that branch after its support window unless compatibility requirements explicitly justify retaining it.
 

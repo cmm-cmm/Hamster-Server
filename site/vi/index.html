@@ -1,0 +1,426 @@
+<!doctype html>
+<html lang="vi" class="no-js">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hamster Server — Máy chủ phát triển Apache &amp; PHP di động cho Windows</title>
+<meta name="description" content="Hamster Server là web server cục bộ miễn phí, mã nguồn mở cho Windows. Đóng gói sẵn Apache 2.4 và PHP 8.2–8.5 cùng bảng điều khiển, tự cập nhật PHP lên bản vá mới nhất và cho biết chương trình nào đang chiếm cổng. Chạy di động, không cần cài đặt.">
+<link rel="canonical" href="https://hamsterserver.konexforge.com/vi/">
+<link rel="alternate" hreflang="en" href="https://hamsterserver.konexforge.com/">
+<link rel="alternate" hreflang="vi" href="https://hamsterserver.konexforge.com/vi/">
+<link rel="alternate" hreflang="x-default" href="https://hamsterserver.konexforge.com/">
+<meta name="robots" content="index, follow, max-image-preview:large">
+<meta name="author" content="Konex Forge">
+<meta name="theme-color" content="#111317" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f7f5f1" media="(prefers-color-scheme: light)">
+
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Hamster Server">
+<meta property="og:title" content="Hamster Server — Apache và PHP trên Windows, không cần sửa file cấu hình">
+<meta property="og:description" content="Máy chủ phát triển Apache + PHP 8.2–8.5 miễn phí, di động cho Windows. PHP tự cập nhật, extension đi theo, xung đột cổng được giải thích rõ.">
+<meta property="og:url" content="https://hamsterserver.konexforge.com/vi/">
+<meta property="og:image" content="https://hamsterserver.konexforge.com/assets/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Bảng điều khiển Hamster Server với Apache và PHP đang chạy">
+<meta property="og:locale" content="vi_VN">
+<meta property="og:locale:alternate" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Hamster Server — Apache và PHP trên Windows, không cần sửa file cấu hình">
+<meta name="twitter:description" content="Máy chủ phát triển Apache + PHP 8.2–8.5 miễn phí, di động cho Windows. PHP tự cập nhật, extension đi theo, xung đột cổng được giải thích rõ.">
+<meta name="twitter:image" content="https://hamsterserver.konexforge.com/assets/og-image.png">
+
+<link rel="icon" href="/favicon.ico" sizes="any">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="manifest" href="/site.webmanifest">
+<link rel="alternate" type="text/plain" title="Tóm tắt cho trợ lý AI (tiếng Anh)" href="/llms.txt">
+<link rel="stylesheet" href="/assets/site.css">
+<script src="/assets/demo.js" defer></script>
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebPage", "@id": "https://hamsterserver.konexforge.com/vi/#page",
+      "url": "https://hamsterserver.konexforge.com/vi/", "inLanguage": "vi",
+      "name": "Hamster Server — Máy chủ phát triển Apache & PHP di động cho Windows",
+      "description": "Hamster Server là web server cục bộ miễn phí, mã nguồn mở cho Windows, đóng gói sẵn Apache 2.4 và PHP 8.2–8.5 cùng bảng điều khiển tự tạo toàn bộ cấu hình.",
+      "isPartOf": { "@id": "https://hamsterserver.konexforge.com/#site" },
+      "about": { "@id": "https://hamsterserver.konexforge.com/#app" },
+      "primaryImageOfPage": "https://hamsterserver.konexforge.com/images/main-window.png"
+    },
+    {
+      "@type": "FAQPage",
+      "inLanguage": "vi",
+      "mainEntity": [
+        { "@type": "Question", "name": "Hamster Server là gì?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Hamster Server là web server cục bộ miễn phí, mã nguồn mở cho Windows. Nó đóng gói sẵn Apache HTTP Server và PHP 8.2 đến 8.5 cùng một bảng điều khiển tự tạo toàn bộ cấu hình, nên dự án PHP chạy ngay tại http://localhost/ hoặc dưới tên như shop.test mà không phải sửa httpd.conf hay php.ini." } },
+        { "@type": "Question", "name": "Hamster Server có miễn phí không?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Có. Hamster Server miễn phí và mã nguồn được phát hành theo giấy phép MIT. Các bản Apache và PHP đi kèm giữ giấy phép mã nguồn mở riêng của chúng." } },
+        { "@type": "Question", "name": "Hamster Server đi kèm những phiên bản PHP nào?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Phiên bản 1.4.1 đi kèm PHP 8.2.35, 8.3.36, 8.4.27 và 8.5.12 (Non Thread Safe, x64, bản build lại -1 cho Windows), đã có bản vá cho lỗ hổng PHP2Shell CVE-2026-109618 và CVE-2026-109619. Có thể cài thêm bất kỳ bản Windows chính thức nào từ php.net trong PHP Version Manager, và nhánh đang dùng được tự đưa lên bản vá mới nhất trừ khi tắt cập nhật." } },
+        { "@type": "Question", "name": "Hamster Server có tự cập nhật PHP không?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Có, theo mặc định. Ứng dụng kiểm tra php.net một phút sau khi khởi động và sáu giờ một lần, cài bản vá mới hơn của nhánh PHP đang dùng bên cạnh bản hiện tại, rồi chuyển sang khi không có request nào đang chạy. Có thể chọn chỉ thông báo, hoặc tắt hẳn. Ứng dụng không bao giờ tự chuyển sang nhánh PHP khác." } },
+        { "@type": "Question", "name": "Extension như sqlsrv hay Xdebug có còn sau khi cập nhật PHP không?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Có. Các DLL extension bạn thêm vào thư mục ext của một runtime, cùng các DLL mà chúng cần, được chép sang bản vá mới của cùng nhánh PHP. File mà bản vá mới đã có sẵn không bao giờ bị ghi đè. Extension không được chép giữa hai nhánh (ví dụ 8.4 sang 8.5) vì chúng được build riêng cho từng nhánh." } },
+        { "@type": "Question", "name": "Hamster Server có cần cài đặt hay quyền quản trị không?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Không. Đây là một thư mục di động: giải nén file zip vào nơi có quyền ghi rồi chạy HamsterServer.exe. Cần Windows 10 hoặc 11 (x64) và .NET 10 Desktop Runtime." } },
+        { "@type": "Question", "name": "Hamster Server có kèm MySQL hay MariaDB không?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Không. Hamster Server đóng gói Apache và PHP. Các extension MySQL, PostgreSQL, SQLite và SQL Server của PHP có thể kết nối tới máy chủ cơ sở dữ liệu bạn chạy riêng; cửa sổ Ports cho biết máy chủ cơ sở dữ liệu nào đang lắng nghe." } },
+        { "@type": "Question", "name": "Vì sao tên virtual host của tôi không mở được trong trình duyệt?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Windows phải biết tên đó trỏ về máy này. Tên kết thúc bằng .localhost dùng được ngay; mọi tên khác cần một dòng như 127.0.0.1 shop.test trong file hosts của Windows. Hamster Server kiểm tra file hosts và hiện đúng dòng cần thêm." } },
+        { "@type": "Question", "name": "Hamster Server kết nối tới đâu trên Internet?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Chỉ windows.php.net và downloads.php.net qua HTTPS, để kiểm tra và tải các bản PHP; bản tải về chỉ được cài khi khớp checksum SHA-256. Đặt cập nhật thành Off thì ngay cả kết nối đó cũng không còn. Apache chỉ lắng nghe trên máy này, trừ khi bật truy cập mạng LAN." } }
+      ]
+    }
+  ]
+}
+</script>
+</head>
+<body>
+<a class="skip" href="#main">Bỏ qua, tới nội dung</a>
+
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="/vi/" aria-label="Trang chủ Hamster Server">
+      <picture><source srcset="/assets/brand/horizontal-color.svg" media="(prefers-color-scheme: light)"><img src="/assets/brand/horizontal-reverse.svg" width="173" height="38" alt="Hamster Server"></picture>
+      <span class="ver">v1.4.1</span>
+    </a>
+    <nav class="nav" aria-label="Chính">
+      <a href="#features">Tính năng</a>
+      <a href="#updates">Cập nhật PHP</a>
+      <a href="#ports">Cổng</a>
+      <a href="#faq">Hỏi đáp</a>
+      <a class="gh" href="https://github.com/cmm-cmm/Hamster-Server">GitHub</a>
+    </nav>
+    <div class="lang" aria-label="Ngôn ngữ">
+      <a href="/" hreflang="en" lang="en">EN</a>
+      <a href="/vi/" hreflang="vi" lang="vi" aria-current="true">VI</a>
+    </div>
+  </div>
+</header>
+
+<main id="main">
+
+<section class="hero" aria-labelledby="hero-title">
+  <div class="wrap">
+    <div>
+      <div class="chips">
+        <span class="chip"><span class="leds" aria-hidden="true"><i></i><i></i></span>Miễn phí · Mã nguồn mở · Windows 10 &amp; 11</span>
+      </div>
+      <h1 id="hero-title">Apache và PHP trên Windows, <em>không cần sửa file cấu hình.</em></h1>
+      <p class="lead"><strong>Hamster Server</strong> là web server cục bộ miễn phí, chạy di động trên Windows. Ứng dụng đóng gói sẵn Apache 2.4 và PHP 8.2–8.5 cùng một bảng điều khiển tự viết mọi file cấu hình cho bạn, tự giữ PHP ở bản vá mới nhất, và chỉ đích danh chương trình đang chặn khi một cổng bị chiếm.</p>
+      <div class="cta">
+        <a class="btn btn-primary" href="https://github.com/cmm-cmm/Hamster-Server/releases/download/v1.4.1/HamsterServer-1.4.1-win-x64.zip">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7.5 10.5 12 15l4.5-4.5M5 19.5h14"/></svg>
+          <span>Tải cho Windows<small>v1.4.1 · file .zip di động · 156 MB</small></span>
+        </a>
+        <a class="btn btn-ghost" href="https://github.com/cmm-cmm/Hamster-Server">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8.5 7l-5 5 5 5M15.5 7l5 5-5 5M13.5 5l-3 14"/></svg>
+          Xem mã nguồn trên GitHub
+        </a>
+      </div>
+      <div class="checks">
+        <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>Không cần cài đặt</span>
+        <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>Không cần quyền admin</span>
+        <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>Giấy phép MIT</span>
+      </div>
+    </div>
+
+    <div>
+      <div class="demo" data-demo>
+        <img class="peek" src="/assets/brand/icon-color.svg" width="92" height="92" alt="">
+        <div class="win" data-state="stopped" role="group" aria-label="Mô phỏng bảng điều khiển Hamster Server">
+          <div class="win-bar"><img src="/assets/favicon-16.png" width="16" height="16" alt="">Hamster Server Control Panel<span class="wb" aria-hidden="true">—&nbsp;▢&nbsp;✕</span></div>
+          <div class="win-tools">
+            <button type="button" class="go" data-action="start"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l10.5-6.5z"/></svg>Start All</button>
+            <button type="button" class="halt" data-action="stop" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 6.5h11v11h-11z"/></svg>Stop All</button>
+            <span class="muted-ic opt"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 9.2a2.8 2.8 0 1 0 0 5.6a2.8 2.8 0 1 0 0-5.6zM12 2.8v2.7M12 18.5v2.7M2.8 12h2.7M18.5 12h2.7"/></svg>Settings</span>
+            <span class="muted-ic opt"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h14M14.5 5.5 18 9l-3.5 3.5M20 15H6M9.5 11.5 6 15l3.5 3.5"/></svg>Ports</span>
+          </div>
+          <div class="svc">
+            <div class="svc-head"><span>Module</span><span>Status</span><span class="pid">PID</span><span>Port(s)</span><span class="ver">Version</span></div>
+            <div class="svc-row" data-svc="apache" data-state="stopped"><span class="name"><i class="dot"></i>Apache</span><span class="st">Stopped</span><span class="pid">—</span><span>80</span><span class="ver">2.4.68</span></div>
+            <div class="svc-row" data-svc="php" data-state="stopped"><span class="name"><i class="dot"></i>PHP-CGI</span><span class="st">Stopped</span><span class="pid">—</span><span>9000 (FastCGI)</span><span class="ver">8.5.12-1</span></div>
+          </div>
+          <div class="log" aria-live="polite" aria-label="Nhật ký"></div>
+          <div class="win-status"><span class="gs"><i class="dot"></i><span class="gs-text">Stopped</span></span><span class="seg">PHP: 8.5.12-1</span><span class="seg">Apache: 2.4.68</span></div>
+        </div>
+        <div class="browser" aria-hidden="true"><span class="okc">✓</span><span class="url">http://localhost/</span>It works</div>
+      </div>
+      <p class="demo-hint">Bản phát lại trực tiếp của bảng điều khiển — thử bấm <strong>Stop All</strong> và <strong>Start All</strong>.</p>
+      <figure class="shot hero-shot">
+        <img src="/images/main-window.png" width="900" height="600" alt="Bảng điều khiển Hamster Server: Apache và PHP-CGI đang chạy, nhật ký khởi động bên dưới.">
+      </figure>
+    </div>
+  </div>
+</section>
+
+<section class="band" aria-labelledby="how-title">
+  <div class="wrap">
+    <div class="section-head">
+      <div class="kicker">Cách hoạt động</div>
+      <h2 id="how-title">Giải nén. Khởi động. Mở trang.</h2>
+      <p>Không phải cài service, không phải sửa file. Bảng điều khiển tự tạo cấu hình Apache, cấu hình của từng site và <code>php.ini</code> cho từng phiên bản PHP.</p>
+    </div>
+    <div class="steps">
+      <div class="step"><div class="n">1</div><h3>Giải nén</h3><p>Giải nén thư mục vào bất kỳ đâu bạn có quyền ghi, chẳng hạn <code>D:\HamsterServer</code>, rồi chạy <code>HamsterServer.exe</code>.</p></div>
+      <div class="step"><div class="n">2</div><h3>Start All</h3><p>Một nút khởi động cả Apache lẫn PHP. Icon ở khay hệ thống chuyển xanh khi mọi thứ đã chạy.</p></div>
+      <div class="step"><div class="n">3</div><h3>Mở site của bạn</h3><p>Vào <code>http://localhost/</code>, hoặc thêm dự án dưới tên <code>shop.localhost</code> kèm preset theo framework.</p></div>
+    </div>
+  </div>
+</section>
+
+<section aria-labelledby="tour-title">
+  <div class="wrap">
+    <div class="section-head">
+      <div class="kicker">Xem nhanh</div>
+      <h2 id="tour-title">Cửa sổ thật, không phải file văn bản.</h2>
+      <p>Mọi màn hình dưới đây đều là ứng dụng thật. Cuộn ngang để xem hết.</p>
+    </div>
+    <div class="gallery" tabindex="0" aria-label="Ảnh chụp màn hình">
+      <figure class="shot"><img src="/images/main-window.png" width="900" height="600" loading="lazy" alt="Cửa sổ chính với Apache và PHP-CGI đang chạy và nhật ký khởi động."><figcaption><strong>Bảng điều khiển</strong>Dịch vụ, phiên bản PHP và nhật ký trực tiếp.</figcaption></figure>
+      <figure class="shot"><img src="/images/php-version-manager.png" width="900" height="640" loading="lazy" alt="PHP Version Manager: PHP 8.5.9 đang dùng, có sẵn PHP 8.5.12-1."><figcaption><strong>PHP Version Manager</strong>Cài, cập nhật và chuyển đổi phiên bản PHP.</figcaption></figure>
+      <figure class="shot"><img src="/images/ports-system.png" width="800" height="522" loading="lazy" alt="Danh sách cổng hệ thống: cổng của Hamster Server màu xanh, chương trình gây xung đột màu đỏ."><figcaption><strong>Cổng hệ thống</strong>Mọi cổng đang lắng nghe và chương trình đứng sau.</figcaption></figure>
+      <figure class="shot"><img src="/images/virtual-hosts.png" width="800" height="548" loading="lazy" alt="Danh sách Virtual Hosts với preset framework và kiểm tra file hosts."><figcaption><strong>Virtual Hosts</strong>Mỗi dự án một tên riêng, có preset theo framework.</figcaption></figure>
+      <figure class="shot"><img src="/images/settings-php.png" width="696" height="639" loading="lazy" alt="Cửa sổ Settings, thẻ PHP, với số worker và OPcache."><figcaption><strong>Settings</strong>Worker, OPcache và cơ chế canh bộ nhớ.</figcaption></figure>
+    </div>
+  </div>
+</section>
+
+<section id="features" class="band" aria-labelledby="features-title">
+  <div class="wrap">
+    <div class="section-head">
+      <div class="kicker">Tính năng</div>
+      <h2 id="features-title">Mọi thứ một dự án PHP cần trên Windows.</h2>
+      <p>Thiết lập bằng cửa sổ hẳn hoi thay vì file văn bản. Mọi thay đổi đều được kiểm tra và áp dụng giúp bạn.</p>
+    </div>
+    <div class="bento">
+      <div class="tile wide">
+        <div class="ic t-purple"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8.5 7l-5 5 5 5M15.5 7l5 5-5 5M13.5 5l-3 14"/></svg></div>
+        <h3>Bốn phiên bản PHP song song</h3>
+        <p>Có sẵn PHP 8.2, 8.3, 8.4 và 8.5. Chuyển đổi bằng một cú nhấp, hoặc cài bất kỳ bản Windows chính thức nào khác từ php.net, được kiểm tra bằng SHA-256.</p>
+        <div class="versions" aria-label="Các phiên bản PHP đi kèm"><span>8.2</span><span>8.3</span><span>8.4</span><span class="on">8.5 · đang dùng</span></div>
+      </div>
+      <div class="tile wide">
+        <div class="ic t-amber"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3M19.5 4v4.5H15"/></svg></div>
+        <h3>PHP tự cập nhật</h3>
+        <p>Bản vá mới của nhánh PHP bạn dùng được cài bên cạnh bản hiện tại và bật lên khi không có gì đang được phục vụ. Extension của bạn đi theo, và bản cũ được giữ lại để quay về khi cần.</p>
+      </div>
+      <div class="tile">
+        <div class="ic t-blue"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5a8.5 8.5 0 1 0 0 17a8.5 8.5 0 1 0 0-17zM3.5 12h17M12 3.5c2.5 2.3 3.5 5.3 3.5 8.5s-1 6.2-3.5 8.5M12 3.5c-2.5 2.3-3.5 5.3-3.5 8.5s1 6.2 3.5 8.5"/></svg></div>
+        <h3>Site sẵn sàng cho framework</h3>
+        <p>Virtual host tự chọn thư mục public, định tuyến qua front controller và chặn các file như <code>.env</code>.</p>
+        <div class="presets"><span>Laravel</span><span>Symfony</span><span>WordPress</span><span>Drupal</span><span>Magento</span><span>+6</span></div>
+      </div>
+      <div class="tile">
+        <div class="ic t-red"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h14M14.5 5.5 18 9l-3.5 3.5M20 15H6M9.5 11.5 6 15l3.5 3.5"/></svg></div>
+        <h3>Xung đột cổng, giải thích rõ</h3>
+        <p>Xem mọi cổng đang mở trên máy và chương trình đứng sau. Chương trình chặn Apache được tô đỏ.</p>
+      </div>
+      <div class="tile">
+        <div class="ic t-green"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 12h4l2.5-6 4 12 2.5-6h4"/></svg></div>
+        <h3>Tự chăm sóc chính mình</h3>
+        <p>PHP được khởi động lại sau khi crash, và bộ nhớ được thu hồi lúc rảnh, nên không request nào bị cắt ngang.</p>
+      </div>
+      <div class="tile">
+        <div class="ic t-orange"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 3.5h7l4 4v13h-11zM13.5 3.5v4h4M9 12h6M9 15.5h6"/></svg></div>
+        <h3>Thiết lập PHP ở một nơi</h3>
+        <p>Giới hạn bộ nhớ, dung lượng upload, múi giờ và extension, kèm bộ khuyến nghị nạp được trên mọi phiên bản PHP.</p>
+      </div>
+      <div class="tile">
+        <div class="ic t-plum"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 4.5h15v6h-15zM4.5 13.5h15v6h-15zM7.5 7.5h4M7.5 16.5h4M16 7.5h.01M16 16.5h.01"/></svg></div>
+        <h3>Apache được tinh chỉnh và kiểm tra</h3>
+        <p>Gzip, Brotli, cache file tĩnh và HTTPS. Directive tùy chỉnh được kiểm bằng <code>httpd -t</code> trước khi lưu.</p>
+      </div>
+      <div class="tile">
+        <div class="ic t-blue"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 13h14M4 5.5h16v10H4zM4 19.5h16"/></svg></div>
+        <h3>Nằm gọn trong khay hệ thống</h3>
+        <p>Khởi động cùng Windows, tự chạy dịch vụ khi mở, và theo dõi nhật ký Apache lẫn PHP trong một khung có tô màu.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="updates" aria-labelledby="updates-title">
+  <div class="wrap">
+    <div class="section-head">
+      <div class="kicker">Mới trong 1.4</div>
+      <h2 id="updates-title">PHP tự cập nhật — và giữ lại extension của bạn.</h2>
+      <p>Hamster Server kiểm tra php.net một phút sau khi khởi động và sáu giờ một lần. Khi có bản vá mới hơn của nhánh bạn đang dùng, ứng dụng cài nó bên cạnh bản hiện tại và chuyển extension của bạn sang.</p>
+    </div>
+    <div class="migrate" aria-label="PHP 8.5.9 được cập nhật lên 8.5.12-1 và các extension của người dùng được chép sang">
+      <div class="rt">
+        <div class="rt-head"><span class="rt-ver">PHP 8.5.9</span><span class="rt-tag">giữ để quay về</span></div>
+        <div class="rt-ext">
+          <span class="x own">php_sqlsrv.dll</span>
+          <span class="x own">php_pdo_sqlsrv.dll</span>
+          <span class="x own">php_xdebug.dll</span>
+          <span class="x">php_curl.dll · php_intl.dll · …</span>
+        </div>
+      </div>
+      <div class="flow">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h15M14 7l5 5-5 5"/></svg>
+        <span>downloads.php.net</span>
+        <span class="sha">SHA-256 ✓</span>
+      </div>
+      <div class="rt new">
+        <div class="rt-head"><span class="rt-ver">PHP 8.5.12-1</span><span class="rt-tag">đang dùng</span></div>
+        <div class="rt-ext">
+          <span class="x own">php_sqlsrv.dll</span>
+          <span class="x own">php_pdo_sqlsrv.dll</span>
+          <span class="x own">php_xdebug.dll</span>
+          <span class="x">php_curl.dll · php_intl.dll · …</span>
+        </div>
+      </div>
+    </div>
+    <div class="pillars" style="margin-top: 28px">
+      <div class="pillar"><h3>Cài song song</h3><p>Bản vá mới chỉ được bật khi không có request nào đang chạy. Bản cũ vẫn ở đó để bạn chuyển lại.</p></div>
+      <div class="pillar"><h3>Extension đi theo</h3><p>Các DLL bạn đã thêm được chép sang. File mà bản vá mới có sẵn không bao giờ bị ghi đè.</p></div>
+      <div class="pillar"><h3>Chỉ trong cùng nhánh</h3><p>8.5.x vẫn là 8.5.x. Lên nhánh mới là do bạn quyết định, vì extension được build riêng cho từng nhánh.</p></div>
+      <div class="pillar"><h3>Tùy bạn chọn</h3><p><em>Install automatically</em>, <em>Notify me only</em> hoặc <em>Off</em>, đặt trong PHP Version Manager.</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="ports" class="band" aria-labelledby="ports-title">
+  <div class="wrap split flip">
+    <div class="copy">
+      <div class="kicker">Cổng</div>
+      <h2 id="ports-title">“Cổng đã bị chiếm” — bởi ai?</h2>
+      <p class="muted">Cửa sổ Ports liệt kê mọi cổng TCP đang lắng nghe trên máy, kèm địa chỉ, chương trình và PID. Nó cũng cho biết từng cổng của Apache có trống hay không, trước khi bạn bấm Start.</p>
+      <div class="legend">
+        <span><i style="background: var(--green)"></i>Hamster Server</span>
+        <span><i style="background: var(--red)"></i>Chặn Hamster Server</span>
+        <span><i style="background: var(--fg-3)"></i>Chương trình khác</span>
+      </div>
+      <div class="points">
+        <div class="point"><div class="ic t-blue"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 4.5h15v6h-15zM4.5 13.5h15v6h-15zM7.5 7.5h4M7.5 16.5h4"/></svg></div><div><h3>Biết rõ dịch vụ của bạn</h3><p>MySQL, SQL Server, Redis, MongoDB, Vite và Xdebug được gọi đúng tên, nên một con số lạ cũng có ý nghĩa.</p></div></div>
+        <div class="point"><div class="ic t-orange"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 7a1.5 1.5 0 0 1 1.5-1.5h4l2 2h8a1.5 1.5 0 0 1 1.5 1.5v8.5a1.5 1.5 0 0 1-1.5 1.5H5a1.5 1.5 0 0 1-1.5-1.5z"/></svg></div><div><h3>Xử lý ngay</h3><p>Lọc, sắp xếp và làm mới. Nhấp chuột phải để mở site trong trình duyệt, mở thư mục của chương trình hoặc chép thông tin của nó.</p></div></div>
+      </div>
+    </div>
+    <figure class="shot">
+      <img src="/images/ports-system.png" width="800" height="522" loading="lazy" alt="Danh sách cổng hệ thống: Apache của Hamster Server ở cổng 80 và PHP ở 9000 màu xanh, Node.js chiếm cổng 8080 màu đỏ, MySQL, SQL Server, Redis và MongoDB được gắn nhãn.">
+      <figcaption>Cổng hệ thống: Node.js đang giữ cổng 8080 mà Apache cần.</figcaption>
+    </figure>
+  </div>
+</section>
+
+<section aria-labelledby="sites-title">
+  <div class="wrap split">
+    <div class="copy">
+      <div class="kicker">Virtual host</div>
+      <h2 id="sites-title">Mỗi dự án một tên riêng.</h2>
+      <p class="muted">Thêm site, chọn thư mục và preset framework, Hamster Server sẽ tự khởi động lại Apache. Bạn có thể bật hoặc tắt từng site, mở trong trình duyệt hoặc mở thư mục của nó.</p>
+      <p class="muted">Tên kết thúc bằng <code>.localhost</code> dùng được ngay. Với mọi tên khác, Hamster Server kiểm tra file hosts của Windows và hiện đúng dòng cần thêm:</p>
+      <div class="hostsline"><b>thêm vào file hosts:</b> 127.0.0.1&nbsp;&nbsp;shop.test</div>
+    </div>
+    <figure class="shot">
+      <img src="/images/virtual-hosts.png" width="800" height="548" loading="lazy" alt="Danh sách Virtual Hosts với các site Laravel, WordPress, Symfony và CodeIgniter; shop.test đang bật nhưng chưa có trong file hosts.">
+      <figcaption>Virtual Hosts kèm kiểm tra file hosts.</figcaption>
+    </figure>
+  </div>
+</section>
+
+<section id="privacy" class="band" aria-labelledby="privacy-title">
+  <div class="wrap">
+    <div class="section-head">
+      <div class="kicker">Quyền riêng tư</div>
+      <h2 id="privacy-title">Cục bộ ngay từ thiết kế.</h2>
+      <p>Một máy chủ phát triển không nên là cửa ngõ vào máy tính của bạn, cũng không nên báo cáo bạn đang làm gì.</p>
+    </div>
+    <div class="pillars">
+      <div class="pillar"><h3>Chỉ máy này</h3><p>Apache lắng nghe trên <code>127.0.0.1</code>. Mở ra mạng nội bộ là một công tắc riêng, phải bật có chủ ý.</p></div>
+      <div class="pillar"><h3>Một kết nối ra ngoài</h3><p>Chỉ php.net, qua HTTPS, để kiểm tra và tải PHP. Không telemetry. Tắt cập nhật thì không còn gì kết nối Internet.</p></div>
+      <div class="pillar"><h3>Tất cả trong một thư mục</h3><p>Thiết lập, nhật ký, cấu hình được tạo và các phiên bản PHP đều nằm trong thư mục Hamster Server.</p></div>
+      <div class="pillar"><h3>Chỉ đọc, không ghi</h3><p>File hosts chỉ được đọc để cảnh báo tên còn thiếu, không bao giờ bị sửa. Không cần quyền quản trị.</p></div>
+    </div>
+  </div>
+</section>
+
+<section aria-labelledby="included-title">
+  <div class="wrap">
+    <div class="section-head">
+      <div class="kicker">Có gì bên trong</div>
+      <h2 id="included-title">Đi kèm trong phiên bản 1.4.1</h2>
+      <p>Các bản build chính thức, được ghi lại cùng checksum trong file <a href="https://github.com/cmm-cmm/Hamster-Server/blob/main/THIRD_PARTY_RUNTIMES.md">THIRD_PARTY_RUNTIMES.md</a> của repo.</p>
+    </div>
+    <table class="included">
+      <thead><tr><th scope="col">Thành phần</th><th scope="col">Bản build</th><th scope="col">Phiên bản</th></tr></thead>
+      <tbody>
+        <tr><td>Apache HTTP Server</td><td>Apache Lounge, VS18 Win64</td><td>2.4.68</td></tr>
+        <tr><td>PHP</td><td>Non Thread Safe, x64</td><td>8.2.35-1 · 8.3.36-1 · 8.4.27-1 · 8.5.12-1</td></tr>
+        <tr><td>Bộ chứng chỉ CA</td><td>Mozilla roots</td><td>2026-08-13</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section id="download" class="band" aria-labelledby="download-title">
+  <div class="wrap dl">
+    <div class="dl-card">
+      <picture class="mascot"><source srcset="/assets/brand/icon-color.svg" media="(prefers-color-scheme: light)"><img src="/assets/brand/icon-reverse.svg" width="190" height="190" alt="" loading="lazy"></picture>
+      <h2 id="download-title">Tải Hamster Server</h2>
+      <p>Miễn phí và mã nguồn mở. Chạy di động: giải nén, chạy, muốn gỡ thì xóa thư mục.</p>
+      <a class="btn btn-primary" href="https://github.com/cmm-cmm/Hamster-Server/releases/download/v1.4.1/HamsterServer-1.4.1-win-x64.zip">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7.5 10.5 12 15l4.5-4.5M5 19.5h14"/></svg>
+        <span>Tải v1.4.1<small>HamsterServer-1.4.1-win-x64.zip · 156 MB</small></span>
+      </a>
+      <div class="dl-meta">
+        <a href="https://github.com/cmm-cmm/Hamster-Server/releases/tag/v1.4.1">Ghi chú phát hành &amp; SHA-256</a>
+        <a href="https://github.com/cmm-cmm/Hamster-Server/releases">Mọi phiên bản</a>
+        <a href="https://github.com/cmm-cmm/Hamster-Server#readme">Tài liệu (tiếng Anh)</a>
+      </div>
+    </div>
+    <div class="dl-steps">
+      <ol>
+        <li><strong>Tải</strong> file .zip ở trên.</li>
+        <li><strong>Giải nén</strong> vào thư mục bạn có quyền ghi, ví dụ <code>D:\HamsterServer</code>.</li>
+        <li><strong>Chạy</strong> <code>HamsterServer.exe</code> và bấm <strong>Start All</strong>.</li>
+        <li><strong>Mở</strong> <code>http://localhost/</code>.</li>
+      </ol>
+      <p class="req">Cần Windows 10 hoặc 11 (x64) và <a href="https://dotnet.microsoft.com/download/dotnet/10.0">.NET 10 Desktop Runtime</a>.</p>
+    </div>
+  </div>
+</section>
+
+<section id="faq" aria-labelledby="faq-title">
+  <div class="wrap">
+    <div class="section-head">
+      <div class="kicker">Hỏi đáp</div>
+      <h2 id="faq-title">Câu hỏi thường gặp.</h2>
+    </div>
+    <div class="faq">
+      <details open><summary>Hamster Server là gì?</summary><p>Hamster Server là web server cục bộ miễn phí, mã nguồn mở cho Windows. Nó đóng gói sẵn Apache HTTP Server và PHP 8.2 đến 8.5 cùng một bảng điều khiển tự tạo toàn bộ cấu hình, nên dự án PHP chạy ngay tại <code>http://localhost/</code> hoặc dưới tên như <code>shop.test</code> mà không phải sửa <code>httpd.conf</code> hay <code>php.ini</code>.</p></details>
+      <details><summary>Hamster Server có miễn phí không?</summary><p>Có. Hamster Server miễn phí và mã nguồn được phát hành theo giấy phép MIT. Các bản Apache và PHP đi kèm giữ giấy phép mã nguồn mở riêng của chúng.</p></details>
+      <details><summary>Hamster Server đi kèm những phiên bản PHP nào?</summary><p>Phiên bản 1.4.1 đi kèm PHP 8.2.35, 8.3.36, 8.4.27 và 8.5.12 (Non Thread Safe, x64, bản build lại -1 cho Windows), đã có bản vá cho lỗ hổng PHP2Shell CVE-2026-109618 và CVE-2026-109619. Có thể cài thêm bất kỳ bản Windows chính thức nào từ php.net trong PHP Version Manager, và nhánh đang dùng được tự đưa lên bản vá mới nhất trừ khi tắt cập nhật.</p></details>
+      <details><summary>Hamster Server có tự cập nhật PHP không?</summary><p>Có, theo mặc định. Ứng dụng kiểm tra php.net một phút sau khi khởi động và sáu giờ một lần, cài bản vá mới hơn của nhánh PHP đang dùng bên cạnh bản hiện tại, rồi chuyển sang khi không có request nào đang chạy. Có thể chọn chỉ thông báo, hoặc tắt hẳn. Ứng dụng không bao giờ tự chuyển sang nhánh PHP khác.</p></details>
+      <details><summary>Extension như sqlsrv hay Xdebug có còn sau khi cập nhật PHP không?</summary><p>Có. Các DLL extension bạn thêm vào thư mục <code>ext</code> của một runtime, cùng các DLL mà chúng cần, được chép sang bản vá mới của cùng nhánh PHP. File mà bản vá mới đã có sẵn không bao giờ bị ghi đè. Extension không được chép giữa hai nhánh (ví dụ 8.4 sang 8.5) vì chúng được build riêng cho từng nhánh.</p></details>
+      <details><summary>Hamster Server có cần cài đặt hay quyền quản trị không?</summary><p>Không. Đây là một thư mục di động: giải nén file zip vào nơi có quyền ghi rồi chạy <code>HamsterServer.exe</code>. Cần Windows 10 hoặc 11 (x64) và .NET 10 Desktop Runtime.</p></details>
+      <details><summary>Hamster Server có kèm MySQL hay MariaDB không?</summary><p>Không. Hamster Server đóng gói Apache và PHP. Các extension MySQL, PostgreSQL, SQLite và SQL Server của PHP có thể kết nối tới máy chủ cơ sở dữ liệu bạn chạy riêng; cửa sổ Ports cho biết máy chủ cơ sở dữ liệu nào đang lắng nghe.</p></details>
+      <details><summary>Vì sao tên virtual host của tôi không mở được trong trình duyệt?</summary><p>Windows phải biết tên đó trỏ về máy này. Tên kết thúc bằng <code>.localhost</code> dùng được ngay; mọi tên khác cần một dòng như <code>127.0.0.1 shop.test</code> trong file hosts của Windows. Hamster Server kiểm tra file hosts và hiện đúng dòng cần thêm.</p></details>
+      <details><summary>Hamster Server kết nối tới đâu trên Internet?</summary><p>Chỉ <code>windows.php.net</code> và <code>downloads.php.net</code> qua HTTPS, để kiểm tra và tải các bản PHP; bản tải về chỉ được cài khi khớp checksum SHA-256. Đặt cập nhật thành Off thì ngay cả kết nối đó cũng không còn. Apache chỉ lắng nghe trên máy này, trừ khi bật truy cập mạng LAN.</p></details>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <a class="brand" href="/vi/"><picture><source srcset="/assets/brand/horizontal-color.svg" media="(prefers-color-scheme: light)"><img src="/assets/brand/horizontal-reverse.svg" width="127" height="28" alt="Hamster Server" loading="lazy"></picture></a>
+    <nav aria-label="Chân trang">
+      <a href="https://github.com/cmm-cmm/Hamster-Server">GitHub</a>
+      <a href="https://github.com/cmm-cmm/Hamster-Server/releases">Các bản phát hành</a>
+      <a href="https://github.com/cmm-cmm/Hamster-Server/blob/main/LICENSE">Giấy phép MIT</a>
+      <a href="https://github.com/sponsors/cmm-cmm">Tài trợ</a>
+      <a href="/llms.txt">llms.txt</a>
+      <a href="/" hreflang="en" lang="en">English</a>
+    </nav>
+    <span>Một sản phẩm của <a href="https://konexforge.com/">Konex Forge</a></span>
+  </div>
+</footer>
+</body>
+</html>

@@ -96,12 +96,15 @@ public sealed class RuntimeSmokeTests
         Assert.AreEqual(0, process.ExitCode, $"{await stderr}\n{await stdout}");
     }
 
+    // Folder names of the bundled runtimes, verbatim from the windows.php.net catalog.
+    private static readonly string[] BundledPhpVersions = ["8.2.35-1", "8.3.36-1", "8.4.27-1", "8.5.12-1"];
+
     [TestMethod]
     [TestCategory("Integration")]
     public async Task BundledPhpExecutables_ReportExpectedVersions()
     {
         var repositoryRoot = FindRepositoryRoot();
-        foreach (var version in new[] { "8.2.33", "8.3.33", "8.4.24", "8.5.9" })
+        foreach (var version in BundledPhpVersions)
         {
             var php = Path.Combine(repositoryRoot, "HamsterServer", "php", version, "php.exe");
             Assert.IsTrue(File.Exists(php), $"Bundled PHP not found: {php}");
@@ -117,7 +120,8 @@ public sealed class RuntimeSmokeTests
             var output = await process.StandardOutput.ReadToEndAsync();
             await process.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(15));
             Assert.AreEqual(0, process.ExitCode);
-            StringAssert.StartsWith(output, $"PHP {version}");
+            // A Windows rebuild ("8.5.12-1") still reports the plain PHP version.
+            StringAssert.StartsWith(output, $"PHP {version.Split('-')[0]} ");
         }
     }
 
@@ -126,7 +130,7 @@ public sealed class RuntimeSmokeTests
     public async Task BundledPhpRecommendedExtensions_LoadWithoutWarnings()
     {
         var repositoryRoot = FindRepositoryRoot();
-        foreach (var version in new[] { "8.2.33", "8.3.33", "8.4.24", "8.5.9" })
+        foreach (var version in BundledPhpVersions)
         {
             var phpDir = Path.Combine(repositoryRoot, "HamsterServer", "php", version);
             var php = Path.Combine(phpDir, "php.exe");

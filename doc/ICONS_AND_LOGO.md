@@ -2,7 +2,7 @@
 
 Tài liệu này dành cho người thiết kế. Nó liệt kê mọi hình ảnh mà ứng dụng đang hiển thị: logo, icon ứng dụng, chấm trạng thái và các glyph trên toolbar/menu/nút. Mỗi mục ghi rõ hình đang được dựng từ đâu, hiện ở đâu, màu gì và cần kích thước bao nhiêu. Tên định danh (`tsbStartAll`, `UiTheme.Glyph.Play`…) được giữ nguyên tiếng Anh để tra trong code.
 
-Phiên bản ứng dụng: **1.3.0**. Nguồn sự thật cho màu và glyph: `HamsterServer/UiTheme.cs`. Toàn bộ việc gán icon cho cửa sổ chính nằm trong `HamsterServerForm.InitToolbarIcons`.
+Phiên bản ứng dụng: **1.4.1**. Nguồn sự thật cho màu và glyph: `HamsterServer/UiTheme.cs`. Toàn bộ việc gán icon cho cửa sổ chính nằm trong `HamsterServerForm.InitToolbarIcons`.
 
 ---
 
@@ -22,56 +22,54 @@ Phiên bản ứng dụng: **1.3.0**. Nguồn sự thật cho màu và glyph: `H
 
 ## 2. Logo và icon ứng dụng
 
-### 2.1 File nguồn
+Logo hiện tại là **Concept 01 — "Hamster Stack"**: đầu hamster màu cam đặt trên hai tầng máy chủ màu than, mỗi tầng có một đèn trạng thái (trên xanh lá, dưới cam). Bộ nhận diện gốc nằm nguyên vẹn trong `icon/` ở gốc repo (SVG vector thật, PNG, ICO, favicon, ảnh xem trước). `icon/SHA256SUMS.txt` kiểm được từng file, và `.gitattributes` giữ `icon/**` đúng từng byte. Quy tắc dùng logo: `icon/README-VI.md`.
 
-| File | Định dạng | Kích thước | Dùng ở đâu |
-|---|---|---|---|
-| `HamsterServer/server.ico` | ICO, 6 frame, 32 bpp, **tất cả ở dạng BMP** | 256, 128, 64, 48, 32, 16 px (tổng 370 KB) | `<ApplicationIcon>` của file exe, icon cửa sổ chính (nhúng trong `HamsterServerForm.resx`), icon khay hệ thống, logo trong hộp thoại About |
-| `HamsterServer/server.png` | PNG | 1254 × 1254 px (931 KB) | **Không được tham chiếu ở đâu cả** — không có trong code, csproj, README hay `www/`. Có thể là file master của logo. |
+| Vai trò | Hex | Trong code |
+|---|---|---|
+| Cam chính | `#D9711A` | `--orange` của website |
+| Than: thân máy chủ, mắt, mũi, chữ | `#17191E` | `UiTheme.BrandInk` |
+| Ivory: má, tai trong, nền sáng | `#F7F5F1` | `UiTheme.BrandIvory`, nền sáng của website |
+| Đèn xanh | `#22A06B` | — |
 
-### 2.2 Mô tả logo hiện tại
+### 2.1 File trong chương trình
 
-Một chú hamster màu cam theo phong cách cartoon, mặt kem, tai hồng, có râu trắng. Chú đặt hai chân trước lên một chồng **hai khối máy chủ** màu xanh than (slate). Mỗi khối có hai rãnh ngang và một đèn LED: khối trên **xanh lá**, khối dưới **xanh dương**.
+| File | Lấy từ | Dùng ở đâu |
+|---|---|---|
+| `HamsterServer/server.ico` | `icon/icons/hamster-server.ico`: 9 frame PNG 16/20/24/32/40/48/64/128/256 px, 26 KB; 16–24 px là bản rút gọn | `<ApplicationIcon>` của exe, icon cửa sổ chính (bản sao nhúng trong `HamsterServerForm.resx` — **thay ICO thì phải thay cả chỗ này**), khay hệ thống, logo About |
+| `HamsterServer/www/favicon.ico` | `icon/favicon/favicon.ico` | Dashboard `www/` |
+| `HamsterServer/www/assets/logo.svg` | `icon/svg/hamster-server-c01-icon-reverse.svg` | Logo trên header dashboard (nền tối) |
+| `site/favicon.*`, `site/apple-touch-icon.png`, `site/assets/favicon-*.png`, `site/assets/icon-*.png` | `icon/favicon/` | Website |
+| `site/assets/brand/*.svg` | `icon/svg/` (icon và horizontal, bản `color` và `reverse`) | Header, footer, thẻ tải về, demo của website |
+| `site/assets/og-image.png` | Dựng từ logo ngang `reverse` + ảnh cửa sổ chính | Ảnh chia sẻ mạng xã hội |
 
-| Màu chủ đạo (ước lượng từ ảnh) | Hex gần đúng |
-|---|---|
-| Cam lông | `#F7953A` |
-| Kem mặt/bụng | `#FCEBD5` |
-| Hồng tai/mũi/miệng | `#F47C7C` |
-| Xanh than thân máy chủ | `#46566F` |
-| LED xanh lá | `#4ADE80` |
-| LED xanh dương | `#22B8F0` |
-
-### 2.3 Logo xuất hiện ở đâu
+### 2.2 Logo xuất hiện ở đâu
 
 | Vị trí | Kích thước hiển thị | Cách lấy hình |
 |---|---|---|
 | Icon file exe (Explorer, Start menu, shortcut) | 16 → 256 px | Windows tự chọn frame từ `server.ico` |
-| Thanh tiêu đề cửa sổ chính | 16 px (×DPI) | `server.ico` **có chấm trạng thái chồng lên**, xem §3 |
-| Nút trên taskbar | 32/48 px | `server.ico` có chấm trạng thái |
-| Khay hệ thống (tray) | 16 px (×DPI) | `server.ico` có chấm trạng thái |
-| Hộp thoại **About** (`picLogo`) | 64 px logic. Code lấy frame 128 px rồi thu nhỏ để nét ở cả 100 % và 200 % DPI | `new Icon(appIcon, px, px).ToBitmap()`, dùng icon gốc **không** có chấm trạng thái |
-| Các hộp thoại phụ | — | `ShowIcon = false` trên cả 9 hộp thoại, nên không hiện logo |
-| Trang dashboard `www/index.php` | — | **Chưa có favicon** |
+| Thanh tiêu đề cửa sổ chính | 16 px (×DPI) | Bản màu **có chấm trạng thái**, xem §3 |
+| Nút trên taskbar, khay hệ thống | 16–48 px (×DPI) | Có chấm trạng thái; bản **reverse** khi taskbar tối, xem §3 |
+| Hộp thoại **About** (`picLogo`) | 64 px logic, lấy frame gấp đôi rồi thu nhỏ | `new Icon(appIcon, px, px).ToBitmap()`, dùng icon gốc **không** có chấm trạng thái |
+| Các hộp thoại phụ | — | `ShowIcon = false`, nên không hiện logo |
+| Dashboard `www/index.php` | favicon + 40 px trên header | `favicon.ico`, `assets/logo.svg` |
 
-### 2.4 Lưu ý thiết kế cho logo
+### 2.3 Nền tối: bản reverse
 
-1. **Ở 16 px, chi tiết biến mất.** Râu, răng và rãnh máy chủ không còn đọc được ở kích thước tray và tiêu đề cửa sổ. Nên có một bản **giản lược cho 16 px và 32 px** (ví dụ chỉ giữ đầu hamster và một khối máy chủ, bỏ râu), thay vì để Windows thu nhỏ bản đầy đủ.
-2. **Xung đột với chấm trạng thái.** Ứng dụng vẽ một chấm tròn chiếm 38 % kích thước icon vào **góc dưới-phải** (§3), đúng vùng có LED xanh dương của khối máy chủ dưới. Trong khi đó LED xanh lá trên logo trông giống trạng thái "Running" ngay cả khi server đang dừng. Nên cân nhắc một trong hai hướng:
-   - chừa trống góc dưới-phải trong logo, hoặc
-   - đổi LED thành màu trung tính (trắng/xám) để chỉ chấm trạng thái mang nghĩa.
-3. **Nền trong suốt.** Icon được ghép với chấm trạng thái trên nền trong suốt, vì vậy mọi frame cần kênh alpha sạch, không có viền trắng.
-4. **Frame 256 px nên lưu dạng PNG** bên trong file ICO (chuẩn từ Windows Vista). Frame BMP 256 px hiện chiếm 270 KB trên tổng 370 KB.
+Thanh máy chủ màu than của bản màu gần như biến mất trên nền tối. Vì vậy bộ nhận diện có bản `reverse` với thanh màu ivory, còn mọi chi tiết khác giữ nguyên.
+
+- **Website:** mọi logo đặt trong `<picture>`. Mặc định (nền tối) dùng `reverse`, `prefers-color-scheme: light` dùng `color`.
+- **Chương trình:** `server.ico` chỉ có bản màu, nên `UiTheme.ToReverseLogo` tự đổi các điểm ảnh màu than ở dải dưới (từ 58 % chiều cao, ngay dưới mũi) sang ivory và giữ nguyên alpha. `ToReverseLogo_TurnsOnlyTheServerBarsIvory` kiểm ở 16–64 px rằng chỉ thanh máy chủ đổi màu: mắt, mũi và đèn LED giữ nguyên.
 
 ---
 
 ## 3. Chấm trạng thái trên icon (overlay)
 
-`HamsterServerForm.BuildStatusIcon` dựng lại icon nhiều kích thước (16/32/48 px) mỗi khi trạng thái tổng thay đổi:
+`HamsterServerForm.BuildStatusIcon` dựng lại icon ở đúng các frame của `server.ico` (16/20/24/32/40/48/64 px) mỗi khi trạng thái tổng thay đổi, nên ở 125–200 % DPI Windows không phải co giãn ảnh:
 
-- Đường kính chấm: `max(5, 38 % × kích thước)`, đặt ở **góc dưới-phải**, cách mép 1 px.
+- Đường kính chấm: `max(5, 38 % × kích thước)`, đặt ở **góc dưới-phải**, cách mép 1 px. Vị trí này trùng đèn LED cam của tầng máy chủ dưới, nên chấm thay chỗ cho đèn đó.
 - Viền: vòng **trắng** dày 2 px quanh chấm (halo) để tách chấm khỏi logo.
 - Áp dụng cho: icon cửa sổ, nút taskbar, icon khay hệ thống.
+- **Theo màu taskbar.** Thanh tiêu đề luôn sáng nên giữ bản màu. Khay và nút taskbar (`WM_SETICON`, `ICON_BIG`) dùng bản reverse khi `HKCU\…\Themes\Personalize\SystemUsesLightTheme` = 0, kể cả khi thiếu giá trị này. Đổi theme lúc đang chạy thì `SystemEvents.UserPreferenceChanged` dựng lại icon.
 
 | Trạng thái | Điều kiện | Màu | Hex |
 |---|---|---|---|
@@ -257,9 +255,9 @@ Các điểm dưới đây là đầu vào cho đợt thiết kế. Không mục
 | 2 | ~~Menu chuột phải trong Ports và Virtual Hosts không có icon.~~ | **Đã làm** (§6.6). |
 | 3 | ~~Glyph luôn là 16 px, không theo DPI.~~ | **Đã làm**: dựng theo `UiTheme.IconSize`. Còn lại: đổi màn hình có DPI khác lúc đang chạy thì Windows sẽ co giãn ảnh. |
 | 4 | `Glyph.Warning` đã khai báo nhưng không dùng. | Dùng cho cảnh báo trong dialog (RAM vượt ngưỡng, `post_max_size` nhỏ hơn `upload_max_filesize`) hoặc xoá. |
-| 5 | `server.png` (931 KB) không được dùng. | Giữ làm master nhưng chuyển vào `doc/brand/`, hoặc dùng cho README và favicon. |
-| 6 | Dashboard `www/` chưa có favicon. | Xuất `favicon.ico` (16/32/48) và `apple-touch-icon.png` (180) từ logo. |
-| 7 | Icon ứng dụng dùng chung một hình cho mọi kích thước. | Xem §2.4, mục 1–2. |
+| 5 | ~~`server.png` (931 KB) không được dùng.~~ | **Đã làm**: bỏ, master mới nằm trong `icon/`. |
+| 6 | ~~Dashboard `www/` chưa có favicon.~~ | **Đã làm** (§2.1). Dashboard cũng đổi tên từ "XServer Performance Lab" thành "Hamster Server Performance Lab". |
+| 7 | ~~Icon ứng dụng dùng chung một hình cho mọi kích thước.~~ | **Đã làm**: ICO Concept 01 có bản rút gọn cho 16–24 px. Còn lại: bộ nhận diện chưa có ICO `reverse`, nên app tự suy ra (§2.3). |
 | 8 | ~~`Apache` và `AccentHttp`/`AccentAction` trùng màu `#005AB4`.~~ | **Đã làm**: `LogApache` = `#9C2777`. |
 
 ---

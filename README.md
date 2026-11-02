@@ -1,4 +1,9 @@
-# Hamster Server
+<h1>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="icon/svg/hamster-server-c01-horizontal-reverse.svg">
+    <img src="icon/svg/hamster-server-c01-horizontal-color.svg" alt="Hamster Server" width="320">
+  </picture>
+</h1>
 
 [![Latest release](https://img.shields.io/github/v/release/cmm-cmm/Hamster-Server?label=download)](https://github.com/cmm-cmm/Hamster-Server/releases/latest)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
@@ -11,11 +16,11 @@ Unzip it, press **Start All**, and your PHP projects run at `http://localhost/` 
 like `shop.test`. You don't edit `httpd.conf` or `php.ini` by hand or install services, and PHP
 keeps itself on the latest patch.
 
-![PHP Version Manager](site/images/php-version-manager.png)
+![Hamster Server control panel](site/images/main-window.png)
 
 **Website:** [hamsterserver.konexforge.com](https://hamsterserver.konexforge.com/)
 
-Hamster Server is a product of [Konex Forge](https://konexforge.com/). Current version: **1.4.0**.
+Hamster Server is a product of [Konex Forge](https://konexforge.com/). Current version: **1.4.1**.
 
 ---
 
@@ -65,7 +70,7 @@ Hamster Server is a product of [Konex Forge](https://konexforge.com/). Current v
    [latest release](https://github.com/cmm-cmm/Hamster-Server/releases/latest).
 2. *(Optional)* Check the download against the `.sha256` file published with it:
    ```powershell
-   Get-FileHash .\HamsterServer-1.4.0-win-x64.zip -Algorithm SHA256
+   Get-FileHash .\HamsterServer-1.4.1-win-x64.zip -Algorithm SHA256
    ```
 3. Extract it to a folder you can write to, for example `D:\HamsterServer`. Avoid
    `C:\Program Files`: Hamster Server writes its settings and logs next to itself.
@@ -104,6 +109,8 @@ and delete the folder. If you turned on **Launch with Windows**, turn it off fir
 Pick the active PHP version from the main window. Open **Tools › PHP Version Manager** (or
 **Manage…**) to see everything at a glance: which version is active, whether it is up to date,
 and which versions you can install.
+
+![PHP Version Manager](site/images/php-version-manager.png)
 
 **Automatic updates.** Choose one of three modes at the top right of the PHP Version Manager:
 
@@ -228,7 +235,7 @@ Anything that ends up in `php.ini` is edited in **PHP Configuration**, not here.
 | Component | Version |
 |---|---|
 | Apache HTTP Server | 2.4.68 (VS18, Win64) |
-| PHP | 8.2.33, 8.3.33, 8.4.24, 8.5.9 (Non Thread Safe, x64) |
+| PHP | 8.2.35-1, 8.3.36-1, 8.4.27-1, 8.5.12-1 (Non Thread Safe, x64) — patched against PHP2Shell (CVE-2026-109618, CVE-2026-109619) |
 | CA certificate bundle | Mozilla roots, extracted 2026-08-13 |
 
 With automatic updates on, your active PHP branch moves to its newest patch after the first
@@ -295,6 +302,7 @@ Some tests reach outside the test process and only run when you ask for them:
 | `HamsterServer/www/` | Default site, also the performance dashboard |
 | `ssl/` | CA bundle and OpenSSL files |
 | `doc/` | Performance measurements and the icon and logo reference |
+| `icon/` | The brand kit: the logo as SVG, PNG and ICO, favicons and usage rules |
 | `site/` | The website at hamsterserver.konexforge.com; `site/images` also holds the README screenshots |
 | `HamsterServer.Tests/` | Unit, runtime smoke, load and opt-in live tests |
 

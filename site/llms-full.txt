@@ -1,10 +1,11 @@
 # Hamster Server — full description
 
 Website: https://hamsterserver.konexforge.com/
+Vietnamese page: https://hamsterserver.konexforge.com/vi/
 Source: https://github.com/cmm-cmm/Hamster-Server (MIT License)
 Publisher: Konex Forge (https://konexforge.com/)
-Current version: 1.4.0, released 2026-11-02
-Download: https://github.com/cmm-cmm/Hamster-Server/releases/download/v1.4.0/HamsterServer-1.4.0-win-x64.zip (155 MB)
+Current version: 1.4.1, released 2026-11-02
+Download: https://github.com/cmm-cmm/Hamster-Server/releases/download/v1.4.1/HamsterServer-1.4.1-win-x64.zip (156 MB)
 
 ## What it is
 
@@ -17,16 +18,16 @@ Hamster Server is a free, open-source, portable local web server for Windows. It
 - No installer and no administrator rights. Extract the zip to a writable folder (not C:\Program Files) and run HamsterServer.exe.
 - Internet access to php.net only for PHP downloads and updates.
 
-## What is included (version 1.4.0)
+## What is included (version 1.4.1)
 
 - Apache HTTP Server 2.4.68 (Apache Lounge build, VS18, Win64)
-- PHP 8.2.33, 8.3.33, 8.4.24 and 8.5.9 (Non Thread Safe, x64)
+- PHP 8.2.35, 8.3.36, 8.4.27 and 8.5.12 (Non Thread Safe, x64; Windows rebuilds 8.2.35-1, 8.3.36-1, 8.4.27-1, 8.5.12-1), patched against PHP2Shell (CVE-2026-109618 and CVE-2026-109619)
 - Mozilla CA certificate bundle (extracted 2026-08-13), used for HTTPS requests made by PHP code
 - Not included: MySQL, MariaDB, PostgreSQL or any other database server. PHP's database extensions connect to a database server installed separately.
 
 ## Getting started
 
-1. Download HamsterServer-1.4.0-win-x64.zip and extract it, for example to D:\HamsterServer.
+1. Download HamsterServer-1.4.1-win-x64.zip and extract it, for example to D:\HamsterServer.
 2. Run HamsterServer.exe and press Start All. Apache and PHP-CGI start; the tray icon turns green.
 3. Open http://localhost/.
 4. To serve a project, open Tools > Virtual Hosts > Add…, choose the project folder and a framework preset, and give the site a name. Names ending in .localhost (shop.localhost) work immediately; other names (shop.test) need a line "127.0.0.1 shop.test" in C:\Windows\System32\drivers\etc\hosts.

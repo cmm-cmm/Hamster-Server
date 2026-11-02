@@ -8,11 +8,14 @@ partial class HamsterServerForm
     {
         if (disposing)
         {
+            // A static event: without this the form would never be collected.
+            Microsoft.Win32.SystemEvents.UserPreferenceChanged -= OnUserPreferenceChanged;
             components?.Dispose();
             _tray?.Dispose();
             _server?.Dispose();
             _logWriter?.Dispose();
             _statusIcon?.Dispose();
+            _taskbarIcon?.Dispose();
             _healthTimer?.Dispose();
             _logTimer?.Dispose();
         }

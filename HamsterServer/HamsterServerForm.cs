@@ -5,6 +5,7 @@ using System.Text;
 using HamsterServer.Core;
 using HamsterServer.Forms;
 using HamsterServer.Models;
+using Microsoft.Win32;
 
 namespace HamsterServer;
 
@@ -37,6 +38,8 @@ public partial class HamsterServerForm : Form
     private readonly Queue<string> _logQueue = new();
     private Icon? _baseIcon;
     private Icon? _statusIcon;
+    private Icon? _taskbarIcon;   // reverse logo for a dark taskbar; null when it is light
+    private bool _taskbarDark;
     private Color _lastStatusDotColor = Color.Empty;
 
     [DllImport("user32.dll")]
@@ -51,7 +54,14 @@ public partial class HamsterServerForm : Form
     [DllImport("user32.dll", SetLastError = true)]
     private static extern bool DestroyIcon(IntPtr hIcon);
 
-    public HamsterServerForm()
+    public HamsterServerForm() : this(ResolveRootDir()) { }
+
+    /// <summary>
+    /// Runs against an explicit installation root instead of the one found next to the executable.
+    /// Used by the README / website screenshot test, which starts a throw-away installation on
+    /// other ports so it never touches the instance a developer has open.
+    /// </summary>
+    internal HamsterServerForm(string rootDir)
     {
         InitializeComponent();
 
@@ -62,7 +72,7 @@ public partial class HamsterServerForm : Form
         InitServicesList();
         InitLogTimer();
 
-        _rootDir = ResolveRootDir();
+        _rootDir = rootDir;
         _logWriter = new LogWriter(_rootDir);
         _configMgr = new ConfigManager(_rootDir);
         _configMgr.Load();
@@ -487,6 +497,45 @@ public partial class HamsterServerForm : Form
     private void InitTaskbar()
     {
         _baseIcon = this.Icon;
+        _taskbarDark = IsTaskbarDark();
+        SystemEvents.UserPreferenceChanged += OnUserPreferenceChanged;
+    }
+
+    // Windows' "default app mode" and "Windows mode" are separate: the taskbar follows
+    // SystemUsesLightTheme. A missing value means the classic dark taskbar.
+    private static bool IsTaskbarDark()
+    {
+        try
+        {
+            using var key = Registry.CurrentUser.OpenSubKey(
+                @"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize");
+            return key?.GetValue("SystemUsesLightTheme") is not int light || light == 0;
+        }
+        catch (Exception)
+        {
+            return true;
+        }
+    }
+
+    // Raised on a system thread when the user switches Windows between light and dark.
+    private void OnUserPreferenceChanged(object? sender, UserPreferenceChangedEventArgs e)
+    {
+        if (e.Category is not (UserPreferenceCategory.General or UserPreferenceCategory.VisualStyle)) return;
+        bool dark = IsTaskbarDark();
+        if (dark == _taskbarDark || IsDisposed || !IsHandleCreated) return;
+        try
+        {
+            BeginInvoke(() =>
+            {
+                _taskbarDark = dark;
+                _lastStatusDotColor = Color.Empty;   // force a rebuild
+                UpdateTaskbarIcon();
+            });
+        }
+        catch (InvalidOperationException)
+        {
+            // The window is being destroyed; nothing left to repaint.
+        }
     }
 
     private void UpdateTaskbarIcon()
@@ -508,19 +557,32 @@ public partial class HamsterServerForm : Form
         if (dot == _lastStatusDotColor) return;
         _lastStatusDotColor = dot;
 
+        // The title bar is light, so the window keeps the colour logo. The tray and the taskbar
+        // button sit on the taskbar, where the logo's ink server bars vanish when it is dark —
+        // they get the "reverse" variant with ivory bars instead.
         var prev = _statusIcon;
-        _statusIcon = BuildStatusIcon(_baseIcon!, dot);
+        var prevTaskbar = _taskbarIcon;
+        _statusIcon = BuildStatusIcon(_baseIcon!, dot, reverse: false);
+        _taskbarIcon = _taskbarDark ? BuildStatusIcon(_baseIcon!, dot, reverse: true) : null;
         this.Icon = _statusIcon;
-        _tray.Icon = _statusIcon;
+        _tray.Icon = _taskbarIcon ?? _statusIcon;
+        if (_taskbarIcon is not null && IsHandleCreated)
+            SendMessage(Handle, WM_SETICON, (IntPtr)ICON_BIG, _taskbarIcon.Handle);
         prev?.Dispose();
+        prevTaskbar?.Dispose();
     }
 
-    // Builds a multi-size .ico (16, 32, 48 px) with a status dot in the bottom-right corner.
-    // Writing a proper .ico stream lets Windows pick the correct size for each context
-    // (tray = 16, taskbar button = 32/48) without blurry scaling.
-    private static Icon BuildStatusIcon(Icon baseIcon, Color dotColor)
+    private const uint WM_SETICON = 0x0080;
+    private const int ICON_BIG = 1;
+
+    // Builds a multi-size .ico with a status dot in the bottom-right corner, where the logo's
+    // lower server LED sits. Writing a proper .ico stream lets Windows pick the correct size for
+    // each context (tray = 16 × DPI, taskbar button = 32/48) without blurry scaling. The sizes
+    // match the frames of server.ico, so every one is drawn from a real frame — 16–24 px are
+    // the simplified ones — instead of being resampled from a larger picture.
+    private static Icon BuildStatusIcon(Icon baseIcon, Color dotColor, bool reverse)
     {
-        int[] sizes = [16, 32, 48];
+        int[] sizes = [16, 20, 24, 32, 40, 48, 64];
         var pngs = new byte[sizes.Length][];
 
         for (int i = 0; i < sizes.Length; i++)
@@ -536,6 +598,7 @@ public partial class HamsterServerForm : Form
                 // Draw base icon
                 using var src = new Icon(baseIcon, sz, sz);
                 using var srcBmp = src.ToBitmap();
+                if (reverse) UiTheme.ToReverseLogo(srcBmp);
                 g.DrawImage(srcBmp, 0, 0, sz, sz);
 
                 // Dot: 38% of icon size, bottom-right corner
