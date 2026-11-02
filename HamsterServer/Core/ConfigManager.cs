@@ -229,6 +229,8 @@ public class ConfigManager
             : Math.Clamp(config.Php.PostMaxSize, 1, 4_096);
         if (!Enum.IsDefined(config.Php.ErrorReporting))
             config.Php.ErrorReporting = PhpErrorReporting.Auto;
+        if (!Enum.IsDefined(config.Php.UpdateMode))
+            config.Php.UpdateMode = PhpUpdateMode.Auto;
         config.Php.OpcacheMemory = Math.Clamp(config.Php.OpcacheMemory, 16, 4_096);
 
         config.Apache.ServerName = string.IsNullOrWhiteSpace(config.Apache.ServerName)

@@ -212,10 +212,16 @@ Mỗi glyph là một chuỗi path SVG trong `UiTheme.Glyph`. Cột "Thay cho" l
 
 | Hộp thoại | Control | Nhãn | Glyph | Màu |
 |---|---|---|---|---|
-| PHP Version Manager | `btnRefresh` | Refresh | Refresh | AccentAction |
+| PHP Version Manager | `btnRefresh` | Check for updates | Refresh | AccentAction |
 | | `btnInstall` | Install | Add | StatusRunning |
-| | `btnUpdate` | Update | Refresh | AccentAction |
-| | `btnDelete` | Delete | Delete | StatusError |
+| | `btnUpdate` | Update | Download | StatusTransition |
+| | `btnUse` | Use this version | Accept | StatusRunning |
+| | `btnCopyExtensions` | Copy extensions | Code | LogPhp |
+| | `btnDelete` | Remove | Delete | StatusError |
+| | `btnCleanup` | Remove old patches | Clear | StatusError |
+| | `btnUpdateActive` (vùng tóm tắt) | Update to x.y.z / Switch to x.y.z | Download | StatusTransition |
+| | Icon dòng | Đang dùng · đang dùng nhưng có bản mới · đã cài · có thể cài | chấm · Download · chấm · Download | StatusRunning · StatusTransition · StatusStopped · AccentAction |
+| Cửa sổ chính | `lblStatusPhpUpdate` (thanh trạng thái) | PHP x.y.z available | Download | StatusTransition |
 | Ports | `btnAdd` / `btnEdit` / `btnRemove` | Add… / Edit… / Remove | Add / Edit / Delete | StatusRunning / AccentAction / StatusError |
 | | Menu chuột phải `ctxEdit` / `ctxRemove` | Edit… / Remove | Edit / Delete | AccentAction / StatusError |
 | | Icon dòng (`_portIcons`) | HTTP · HTTPS · HTTP tắt · HTTPS tắt | Unlock · Lock · Unlock · Lock | AccentHttp · AccentHttps · StatusStopped · StatusStopped |

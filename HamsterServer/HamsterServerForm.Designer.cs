@@ -70,6 +70,7 @@ partial class HamsterServerForm
         lblStatusMode = new ToolStripStatusLabel();
         lblStatusPhpVer = new ToolStripStatusLabel();
         lblStatusApacheVer = new ToolStripStatusLabel();
+        lblStatusPhpUpdate = new ToolStripStatusLabel();
         splitMain = new SplitContainer();
         grpServices = new GroupBox();
         lvServices = new ListView();
@@ -419,7 +420,7 @@ partial class HamsterServerForm
         // 
         // statusStrip
         // 
-        statusStrip.Items.AddRange(new ToolStripItem[] { lblGlobalStatus, lblStatusSpring, lblStatusMode, lblStatusPhpVer, lblStatusApacheVer });
+        statusStrip.Items.AddRange(new ToolStripItem[] { lblGlobalStatus, lblStatusSpring, lblStatusPhpUpdate, lblStatusMode, lblStatusPhpVer, lblStatusApacheVer });
         statusStrip.Location = new Point(0, 537);
         statusStrip.Name = "statusStrip";
         statusStrip.Size = new Size(884, 24);
@@ -460,6 +461,17 @@ partial class HamsterServerForm
         lblStatusApacheVer.Name = "lblStatusApacheVer";
         lblStatusApacheVer.Size = new Size(69, 19);
         lblStatusApacheVer.Text = "Apache: —";
+        //
+        // lblStatusPhpUpdate
+        //
+        // Shown only while a PHP patch is available or being applied; click opens the version manager.
+        //
+        lblStatusPhpUpdate.IsLink = true;
+        lblStatusPhpUpdate.Name = "lblStatusPhpUpdate";
+        lblStatusPhpUpdate.Size = new Size(140, 19);
+        lblStatusPhpUpdate.Text = "PHP update available";
+        lblStatusPhpUpdate.Visible = false;
+        lblStatusPhpUpdate.Click += btnPhpVersions_Click;
         // 
         // splitMain
         // 
@@ -835,6 +847,7 @@ partial class HamsterServerForm
     private ToolStripStatusLabel lblStatusMode;
     private ToolStripStatusLabel lblStatusPhpVer;
     private ToolStripStatusLabel lblStatusApacheVer;
+    private ToolStripStatusLabel lblStatusPhpUpdate;
 
     private SplitContainer splitMain;
     private GroupBox grpServices;
