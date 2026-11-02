@@ -36,7 +36,7 @@ dotnet test HamsterServer.slnx --filter "Name=Constructor_PopulatesExtensionsBef
 
 The version string lives in three places that a release bump must change together: `<Version>` in `HamsterServer.csproj`, the `HamsterServer-PHP-Version-Manager/<major.minor>` User-Agent in `PhpVersionManager.cs`, and the "Current version: **x.y.z**" line near the top of `README.md`.
 
-The website repeats the released version, so a release also updates `site/`: the `v1.4.0` pill, both download buttons and the "Included in version" heading in `site/index.html`, the JSON-LD `softwareVersion` / `datePublished` / `downloadUrl` / `releaseNotes` there, the facts and download link in `site/llms.txt` and `site/llms-full.txt`, and `<lastmod>` in `site/sitemap.xml`. These point at the GitHub release asset, so publish the release before deploying the site.
+The website repeats the released version, so a release also updates `site/`: the `v1.4.1` pill, both download buttons and the "Included in version" heading in `site/index.html`, the JSON-LD `softwareVersion` / `datePublished` / `downloadUrl` / `releaseNotes` there, the facts and download link in `site/llms.txt` and `site/llms-full.txt`, and `<lastmod>` in `site/sitemap.xml`. These point at the GitHub release asset, so publish the release before deploying the site.
 
 **Git LFS is required.** Apache and PHP binaries (`*.dll`, `*.exe`, `*.lib`, `*.so`, `*.phar` under `HamsterServer/apache/` and `HamsterServer/php/`) are committed through LFS — see `.gitattributes`. Cloning without LFS leaves pointer files and every runtime test fails.
 
@@ -51,7 +51,7 @@ HamsterServer/                     the WinForms app
   UiTheme.cs                 the design system (colors, glyphs, owner-draw helper)
   HamsterServerForm.cs             main window
   apache/Apache24/           bundled Apache (LFS)
-  php/8.2.33 ... 8.5.9/      bundled PHP builds (LFS), dir name == version
+  php/8.2.35-1 ... 8.5.12-1/ bundled PHP builds (LFS), dir name == catalog version
   config/                    runtime config; generated files are gitignored
   www/                       default document root - also the PHP benchmark dashboard app
 ssl/                         cacert.pem + OpenSSL assets, linked into the app output
@@ -130,6 +130,7 @@ These rules are load-bearing; violating them produces crashes or `ERR_INVALID_RE
 - **FastCGI is wired per-VirtualHost, not globally**, so `DOCUMENT_ROOT` resolves correctly. Each block sets `ProxyFCGIBackendType GENERIC`, a `ProxyPassMatch` to `fcgi://127.0.0.1:<FcgiPort>/$1`, plus a `RewriteRule` that stashes the real filesystem path in `PHP_FCGI_SCRIPT` and a `ProxyFCGISetEnvIf` that feeds it back as `SCRIPT_FILENAME` — this is what makes document roots containing spaces work.
 - **`ProxyPassMatch` carries `enablereuse=on max=<Workers> ttl=15` (`ApacheConfigWriter.FcgiReuse`) whenever `Php.MaxRequests == 0`, and all three parts are load-bearing.** `mod_proxy_fcgi` defaults to no reuse, opening and discarding a TCP connection to `php-cgi` for *every* PHP request: latency 0.593 vs 0.287 ms, and a 20 000-request / 64-way soak ran at 1 023 vs 5 333 req/s. The mechanism shows in the socket table — 16 099 sockets left in `TIME_WAIT` toward the FastCGI port after 20 s of load, against a default Windows ephemeral range of 16 384. But `enablereuse=on` **alone is worse than no reuse at all**: `max` defaults to `ThreadsPerChild` (256), so the pool fills with connections no php-cgi child is serving and requests die on `AH01075 ... (polling)` timeouts — at 32-way concurrency throughput fell from 13 066 to **13 req/s with 10 failed requests**. Pinning `max` to the worker count restores it (~18 000 req/s, zero failures at 8–128 way), which is why `max` must track `Php.Workers` and not be hard-coded. The property returns its own leading space so the directive has no trailing whitespace when reuse is off. When testing this, restart `php-cgi` between variants: a run that poisoned the backend makes the next variant look broken.
 - `opcache.jit = function` (tracing mode can crash on mpm_winnt).
+- **`opcache.cache_id` is per runtime folder** (`ApacheConfigWriter.OpcacheCacheId`, a hash of the full path). Windows OPcache shares one memory segment between every process of the same PHP build and user, so a second installation of that build — another Hamster Server folder, or `ReadmeScreenshotTests` beside a running app — attached to it and died with "Opcode handlers are unusable due to ASLR". Introduced with php.ini schema 3.
 - Browser caching (`mod_expires`) is deliberately restricted to **static asset MIME types** (images, fonts, css, js) via `ExpiresByType`. Do not add `ExpiresDefault` — caching a PHP response makes local development confusing and stale.
 - `WriteIfChanged` compares content with normalized line endings before writing, so a restart does not touch unchanged files.
 - `ValidateConfiguration()` throws before writing anything if a server name/alias is invalid, two enabled vhosts share a `ServerName`, or a Hyperf vhost's proxy URL is not http(s).
@@ -141,7 +142,7 @@ These rules are load-bearing; violating them produces crashes or `ERR_INVALID_RE
 
 1. Missing file → write it.
 2. Exists, and the first 8 lines contain neither `PhpIniGeneratedHeader` nor `LegacyPhpIniGeneratedHeader` (the old XServer banner) → **return without touching it.** A hand-authored `php.ini` is never overwritten.
-3. Generated, but missing the current `PhpIniSchemaMarker` (`"; Hamster Server php.ini schema: 2"`) → regenerate. **Bumping that constant is the migration lever**: it is how a template change reaches users who already have a generated file.
+3. Generated, but missing the current `PhpIniSchemaMarker` (`"; Hamster Server php.ini schema: 3"`) → regenerate. **Bumping that constant is the migration lever**: it is how a template change reaches users who already have a generated file.
 4. Generated and current schema, but `extension_dir` does not point at this runtime's `ext/` → regenerate. Generated files hold absolute Windows paths, so this is what repairs the portable folder after it is copied or moved.
 5. `forceRegenerate: true` → always write.
 
@@ -250,7 +251,7 @@ Designer files are hand-written rather than round-tripped through the Visual Stu
 | `BundledPhpRecommendedExtensions_LoadWithoutWarnings` | every `RecommendedExtensions` name plus OPcache loads in every build with empty stderr |
 | `TestApacheConfig_AcceptsValidAndRejectsInvalidCustomDirectives` | `ServerManager.TestApacheConfigAsync` passes a real directive, rejects an unknown one, and deletes its throw-away conf (uses the source tree `HamsterServer/` as root) |
 
-**Upgrading a bundled runtime therefore touches three places**: the `php/<version>/` (or `apache/`) directory, the hard-coded version array in `HamsterServer.Tests/RuntimeSmokeTests.cs` (it appears **twice** — once per PHP test), and the archive URL + SHA-256 table in `THIRD_PARTY_RUNTIMES.md`. Replace runtimes as whole directories — never mix DLLs across patch versions.
+**Upgrading a bundled runtime therefore touches three places**: the `php/<version>/` (or `apache/`) directory, `RuntimeSmokeTests.BundledPhpVersions` (folder names; the version test strips the `-N` rebuild suffix before comparing with `php -v`), and the archive URL + SHA-256 table in `THIRD_PARTY_RUNTIMES.md`. Replace runtimes as whole directories — never mix DLLs across patch versions. Download the zip named in `releases.json`, check its `sha256` before unpacking, and keep the folder name verbatim (`8.5.12-1`). Every bundled patch must be at or above the PHP2Shell fix (CVE-2026-109618/109619: 8.2.35, 8.3.36, 8.4.27, 8.5.12).
 
 `FastCgiSoakTests` (`[TestCategory("Soak")]`) holds the tests that run the real stack, on ports 18080-18083. Every test skips unless `HAMSTER_SOAK=1` (see Build, Test, Run): it binds ports, and `ServerManager.Dispose` kills every `httpd`/`php-cgi` belonging to this installation, including a running instance of the app.
 
