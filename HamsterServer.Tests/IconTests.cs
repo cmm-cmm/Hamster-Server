@@ -15,6 +15,54 @@ public sealed class IconTests
             .Select(field => (field.Name, (string)field.GetRawConstantValue()!));
 
     [TestMethod]
+    public void ToReverseLogo_TurnsOnlyTheServerBarsIvory()
+    {
+        var ico = Path.Combine(FindRepositoryRoot(), "HamsterServer", "server.ico");
+        foreach (var size in new[] { 16, 24, 32, 48, 64 })
+        {
+            using var icon = new Icon(ico, size, size);
+            using var colour = icon.ToBitmap();
+            using var reverse = icon.ToBitmap();
+            UiTheme.ToReverseLogo(reverse);
+
+            int inkBars = 0, ivoryBars = 0, changedAbove = 0, ledsChanged = 0;
+            for (int y = 0; y < size; y++)
+            {
+                for (int x = 0; x < size; x++)
+                {
+                    Color before = colour.GetPixel(x, y), after = reverse.GetPixel(x, y);
+                    Assert.AreEqual(before.A, after.A, $"{size}px: alpha changed at {x},{y}");
+                    bool isInk = before.A > 128 && Near(before, UiTheme.BrandInk);
+                    if (y < size * 0.58)
+                    {
+                        if (before != after) changedAbove++;
+                        continue;
+                    }
+                    if (isInk) inkBars++;
+                    if (isInk && Near(after, UiTheme.BrandIvory)) ivoryBars++;
+                    if (before.A > 128 && Math.Max(before.R, Math.Max(before.G, before.B)) - Math.Min(before.R, Math.Min(before.G, before.B)) > 80
+                        && before != after) ledsChanged++;
+                }
+            }
+            Assert.IsTrue(inkBars > 0, $"{size}px: the frame has no server bars to recolour");
+            Assert.AreEqual(inkBars, ivoryBars, $"{size}px: some bar pixels stayed ink");
+            Assert.AreEqual(0, changedAbove, $"{size}px: the eyes or nose were recoloured");
+            Assert.AreEqual(0, ledsChanged, $"{size}px: an LED was recoloured");
+        }
+
+        static bool Near(Color a, Color b) =>
+            Math.Abs(a.R - b.R) <= 12 && Math.Abs(a.G - b.G) <= 12 && Math.Abs(a.B - b.B) <= 12;
+    }
+
+    private static string FindRepositoryRoot()
+    {
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+        while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "HamsterServer.slnx")))
+            directory = directory.Parent;
+        return directory?.FullName ?? throw new DirectoryNotFoundException("HamsterServer.slnx not found.");
+    }
+
+    [TestMethod]
     public void SvgPath_ParsesAbsoluteRelativeAndShorthandCommands()
     {
         using var square = SvgPath.Parse("M1 1h4v4h-4z");

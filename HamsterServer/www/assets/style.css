@@ -37,7 +37,7 @@ button { color: inherit; }
     padding: 4.4rem 2rem 2.6rem;
 }
 .brand { display: flex; align-items: center; gap: .7rem; color: #bde9fb; font-size: .76rem; font-weight: 750; letter-spacing: .14em; text-transform: uppercase; }
-.brand__mark { display: grid; width: 2.3rem; height: 2.3rem; place-items: center; border-radius: .72rem; color: #04121f; background: linear-gradient(135deg, var(--blue), var(--green)); box-shadow: 0 0 28px rgba(56, 189, 248, .2); letter-spacing: 0; }
+.brand__mark { display: block; width: 2.5rem; height: 2.5rem; flex: none; }
 h1 { margin: 1.35rem 0 .8rem; font-size: clamp(2.25rem, 5vw, 4.4rem); line-height: 1.02; letter-spacing: -.052em; }
 h1 span { color: transparent; background: linear-gradient(90deg, #e8f0fa, #78ddff 48%, #6ee7b7); background-clip: text; }
 .hero p { max-width: 690px; margin: 0; color: var(--muted); font-size: 1.02rem; line-height: 1.7; }

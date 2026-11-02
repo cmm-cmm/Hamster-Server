@@ -28,6 +28,36 @@ internal static class UiTheme
     public static readonly Color TaskbarDotError = Color.FromArgb(231, 76, 60);
     public static readonly Color TaskbarDotStopped = Color.FromArgb(149, 165, 166);
 
+    // ── Brand (doc: icon/README-VI.md, icon/docs/colors.json) ────────────────
+    // The logo's server bars are ink on light backgrounds and ivory on dark ones ("reverse").
+    // server.ico only ships the colour variant, so ToReverseLogo derives the other one.
+    public static readonly Color BrandInk = Color.FromArgb(0x17, 0x19, 0x1E);
+    public static readonly Color BrandIvory = Color.FromArgb(0xF7, 0xF5, 0xF1);
+
+    /// <summary>
+    /// Turns a frame of the colour logo into the "reverse" variant in place: the ink server bars
+    /// below the hamster become ivory, so the logo stays whole on a dark taskbar. Only the lower
+    /// band is touched — the eyes and nose are ink in both variants — and alpha is kept, so the
+    /// anti-aliased edges stay smooth. The LEDs are coloured and therefore left alone.
+    /// </summary>
+    public static void ToReverseLogo(Bitmap frame)
+    {
+        // The bars start at 189/288 of the icon (60 %+); the nose ends at 156/288 (54 %).
+        int top = (int)(frame.Height * 0.58);
+        for (int y = top; y < frame.Height; y++)
+        {
+            for (int x = 0; x < frame.Width; x++)
+            {
+                var c = frame.GetPixel(x, y);
+                if (c.A == 0) continue;
+                int max = Math.Max(c.R, Math.Max(c.G, c.B));
+                int min = Math.Min(c.R, Math.Min(c.G, c.B));
+                if (max <= 0x50 && max - min <= 0x18)
+                    frame.SetPixel(x, y, Color.FromArgb(c.A, BrandIvory));
+            }
+        }
+    }
+
     // ── Log severity ─────────────────────────────────────────────────────────
     public static readonly Color LogNormal = SystemColors.WindowText;
     public static readonly Color LogInfo = Color.FromArgb(0, 0, 160);

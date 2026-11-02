@@ -1,4 +1,9 @@
-# Hamster Server
+<h1>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="icon/svg/hamster-server-c01-horizontal-reverse.svg">
+    <img src="icon/svg/hamster-server-c01-horizontal-color.svg" alt="Hamster Server" width="320">
+  </picture>
+</h1>
 
 [![Latest release](https://img.shields.io/github/v/release/cmm-cmm/Hamster-Server?label=download)](https://github.com/cmm-cmm/Hamster-Server/releases/latest)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
@@ -297,6 +302,7 @@ Some tests reach outside the test process and only run when you ask for them:
 | `HamsterServer/www/` | Default site, also the performance dashboard |
 | `ssl/` | CA bundle and OpenSSL files |
 | `doc/` | Performance measurements and the icon and logo reference |
+| `icon/` | The brand kit: the logo as SVG, PNG and ICO, favicons and usage rules |
 | `site/` | The website at hamsterserver.konexforge.com; `site/images` also holds the README screenshots |
 | `HamsterServer.Tests/` | Unit, runtime smoke, load and opt-in live tests |
 

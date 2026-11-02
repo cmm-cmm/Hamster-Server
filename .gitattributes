@@ -6,6 +6,8 @@
 # Preserve third-party archives as shipped and ignore their upstream whitespace style.
 HamsterServer/apache/** -text -whitespace
 HamsterServer/php/** -text -whitespace
+# The brand kit is kept byte-for-byte as delivered, so icon/SHA256SUMS.txt stays valid.
+icon/** -text -whitespace
 HamsterServer/apache/**/*.dll filter=lfs diff=lfs merge=lfs -text
 HamsterServer/apache/**/*.exe filter=lfs diff=lfs merge=lfs -text
 HamsterServer/apache/**/*.lib filter=lfs diff=lfs merge=lfs -text
