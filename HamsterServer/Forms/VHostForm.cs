@@ -87,15 +87,17 @@ public partial class VHostForm : Form
 
     private void lvVHosts_Resize(object sender, EventArgs e)
     {
+        // The server name is what the user scans for, so it gets the larger share of the flexible
+        // width; at the default window size 38 % clipped ordinary names like "blog.localhost".
         int total = lvVHosts.ClientSize.Width - 4;
-        int flex = total - 130 - 60 - 150 - 170;  // Alias + Port + Framework + Status
+        int flex = total - 110 - 55 - 130 - 160;  // Alias + Port + Framework + Status
         if (flex < 80) return;
-        colServerName.Width = (int)(flex * 0.38);
-        colAlias.Width = 130;
-        colPort.Width = 60;
-        colFramework.Width = 150;
-        colDocRoot.Width = (int)(flex * 0.62);
-        colEnabled.Width = 170;
+        colServerName.Width = (int)(flex * 0.45);
+        colAlias.Width = 110;
+        colPort.Width = 55;
+        colFramework.Width = 130;
+        colDocRoot.Width = (int)(flex * 0.55);
+        colEnabled.Width = 160;
     }
 
     // ─── Load ─────────────────────────────────────────────────────────────────
