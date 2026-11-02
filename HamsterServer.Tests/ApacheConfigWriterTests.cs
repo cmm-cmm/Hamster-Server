@@ -321,6 +321,51 @@ public sealed class ApacheConfigWriterTests
                 $"{Path.GetFileName(file)} should pool FastCGI connections.");
     }
 
+    // These used to be patched into php.ini by the PHP config dialog and were then wiped by the
+    // next SynchronizePhpIni. They live in AppConfig now, so the template must carry them.
+    [TestMethod]
+    public void WritePhpIni_WritesPhpSettingsFromConfiguration()
+    {
+        using var root = new TestDirectory();
+        var phpDir = Path.Combine(root.Path, "php", "8.4.24");
+        Directory.CreateDirectory(Path.Combine(phpDir, "ext"));
+        var config = new AppConfig();
+        config.Php.UploadMaxFilesize = 64;
+        config.Php.PostMaxSize = 256;
+        config.Php.ShortOpenTag = true;
+        config.Php.ErrorReporting = PhpErrorReporting.NoNotices;
+
+        new ApacheConfigWriter(root.Path, config).WritePhpIni(
+            phpDir, Path.Combine(root.Path, "config"), forceRegenerate: true);
+
+        var lines = File.ReadAllLines(Path.Combine(phpDir, "php.ini"))
+            .Select(line => string.Join(' ', line.Split(' ', StringSplitOptions.RemoveEmptyEntries)))
+            .ToArray();
+        CollectionAssert.Contains(lines, "upload_max_filesize = 64M");
+        CollectionAssert.Contains(lines, "post_max_size = 256M");
+        CollectionAssert.Contains(lines, "short_open_tag = On");
+        CollectionAssert.Contains(lines, "error_reporting = E_ALL & ~E_NOTICE");
+        // The FastCGI rule is not a setting: nothing in AppConfig may turn it on.
+        CollectionAssert.Contains(lines, "display_errors = Off");
+    }
+
+    [TestMethod]
+    public void ErrorReportingValue_AutoFollowsServerModeAndNeverNamesEStrict()
+    {
+        var config = new AppConfig();
+        Assert.AreEqual("E_ALL", ApacheConfigWriter.ErrorReportingValue(config));
+
+        config.ServerMode = ServerMode.Production;
+        Assert.AreEqual("E_ALL & ~E_DEPRECATED", ApacheConfigWriter.ErrorReportingValue(config));
+
+        foreach (var level in Enum.GetValues<PhpErrorReporting>())
+        {
+            config.Php.ErrorReporting = level;
+            Assert.IsFalse(ApacheConfigWriter.ErrorReportingValue(config).Contains("E_STRICT", StringComparison.Ordinal),
+                $"{level}: E_STRICT is deprecated in PHP 8.4.");
+        }
+    }
+
     // Recycling a worker closes a connection Apache may be reusing, which surfaced as rare HTTP 503
     // (AH01067 / AH01075 / Windows 10054). Whoever opts back into recycling must get Apache's
     // no-pooling default instead — see doc/PERFORMANCE_EVALUATION.md.

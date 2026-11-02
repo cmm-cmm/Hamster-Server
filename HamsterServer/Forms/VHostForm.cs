@@ -1,3 +1,5 @@
+using System.Diagnostics;
+using HamsterServer.Core;
 using HamsterServer.Models;
 
 namespace HamsterServer.Forms;
@@ -14,6 +16,8 @@ public partial class VHostForm : Form
     private const int IconProxy = 2;
 
     private ImageList _vhostIcons = null!;
+    // Read once per window: names the hosts file points at this computer.
+    private readonly IReadOnlySet<string> _loopbackNames = HostsFile.ReadLoopbackNames();
 
     public VHostForm(AppConfig config, string rootDir)
     {
@@ -40,7 +44,7 @@ public partial class VHostForm : Form
     /// </summary>
     private void InitIcons()
     {
-        _vhostIcons = new ImageList(components) { ImageSize = new Size(16, 16), ColorDepth = ColorDepth.Depth32Bit };
+        _vhostIcons = new ImageList(components) { ImageSize = UiTheme.IconBox, ColorDepth = ColorDepth.Depth32Bit };
         _vhostIcons.Images.Add(UiTheme.CreateGlyph(UiTheme.Glyph.World, UiTheme.StatusRunning));
         _vhostIcons.Images.Add(UiTheme.CreateGlyph(UiTheme.Glyph.World, UiTheme.StatusStopped));
         _vhostIcons.Images.Add(UiTheme.CreateGlyph(UiTheme.Glyph.Link, UiTheme.AccentHttp));
@@ -49,9 +53,24 @@ public partial class VHostForm : Form
         btnAdd.Image = UiTheme.CreateGlyph(UiTheme.Glyph.Add, UiTheme.StatusRunning);
         btnEdit.Image = UiTheme.CreateGlyph(UiTheme.Glyph.Edit, UiTheme.AccentAction);
         btnDelete.Image = UiTheme.CreateGlyph(UiTheme.Glyph.Delete, UiTheme.StatusError);
-        foreach (var b in new[] { btnAdd, btnEdit, btnDelete })
+        btnBrowse.Image = UiTheme.CreateGlyph(UiTheme.Glyph.World, UiTheme.AccentHttp);
+        btnOpenFolder.Image = UiTheme.CreateGlyph(UiTheme.Glyph.Folder, UiTheme.StatusTransition);
+        foreach (var b in new[] { btnAdd, btnEdit, btnDelete, btnToggle, btnBrowse, btnOpenFolder })
             b.DisplayStyle = ToolStripItemDisplayStyle.ImageAndText;
+
+        // The right-click menu repeats toolbar actions, so it carries the same glyphs. The Enable /
+        // Disable pair is set per selection in UpdateButtons.
+        ctxEdit.Image = UiTheme.CreateGlyph(UiTheme.Glyph.Edit, UiTheme.AccentAction);
+        ctxDelete.Image = UiTheme.CreateGlyph(UiTheme.Glyph.Delete, UiTheme.StatusError);
+        ctxBrowse.Image = btnBrowse.Image;
+        ctxOpenFolder.Image = btnOpenFolder.Image;
+        _enableGlyph = UiTheme.CreateGlyph(UiTheme.Glyph.Play, UiTheme.StatusRunning);
+        _disableGlyph = UiTheme.CreateGlyph(UiTheme.Glyph.Stop, UiTheme.StatusError);
+        UiTheme.ApplyIconScaling(toolStrip, ctxVHosts);
     }
+
+    private Image _enableGlyph = null!;
+    private Image _disableGlyph = null!;
 
     // ─── ListView painting ────────────────────────────────────────────────────
     // Owner-drawn only so the Status colour survives selection — see UiTheme.DrawStatusListSubItem.
@@ -69,14 +88,14 @@ public partial class VHostForm : Form
     private void lvVHosts_Resize(object sender, EventArgs e)
     {
         int total = lvVHosts.ClientSize.Width - 4;
-        int flex = total - 130 - 60 - 150 - 80;  // Alias + Port + Framework + Status
+        int flex = total - 130 - 60 - 150 - 170;  // Alias + Port + Framework + Status
         if (flex < 80) return;
         colServerName.Width = (int)(flex * 0.38);
         colAlias.Width = 130;
         colPort.Width = 60;
         colFramework.Width = 150;
         colDocRoot.Width = (int)(flex * 0.62);
-        colEnabled.Width = 80;
+        colEnabled.Width = 170;
     }
 
     // ─── Load ─────────────────────────────────────────────────────────────────
@@ -103,22 +122,96 @@ public partial class VHostForm : Form
         item.SubItems.Add(portDisplay);
         item.SubItems.Add(fwkDisplay);
         item.SubItems.Add(rootDisplay);
-        item.SubItems.Add(v.Enabled ? "Active" : "Disabled");
+        bool reachable = HostsFile.PointsHere(v.ServerName, _loopbackNames);
+        item.SubItems.Add(!v.Enabled ? "Disabled" : reachable ? "Active" : "Active · not in hosts file");
         item.Tag = v;
         item.ForeColor = v.Enabled ? SystemColors.WindowText : SystemColors.GrayText;
-        // Same vocabulary as the Services list: green is serving, grey is switched off.
-        item.SubItems[5].ForeColor = v.Enabled ? UiTheme.StatusRunning : UiTheme.StatusStopped;
+        // Same vocabulary as the Services list: green is serving, grey is switched off, amber means
+        // Apache serves it but the browser will not find it until the name points at 127.0.0.1.
+        item.SubItems[5].ForeColor = !v.Enabled ? UiTheme.StatusStopped
+                                   : reachable ? UiTheme.StatusRunning
+                                   : UiTheme.StatusTransition;
         item.ImageIndex = !v.Enabled ? IconDisabled
                         : profile.IsReverseProxy ? IconProxy
                         : IconEnabled;
         return item;
     }
 
+    private VHostEntry? Selected => lvVHosts.SelectedItems.Count > 0 ? lvVHosts.SelectedItems[0].Tag as VHostEntry : null;
+
     private void UpdateButtons()
     {
-        bool has = lvVHosts.SelectedItems.Count > 0;
+        var v = Selected;
+        bool has = v is not null;
         btnEdit.Enabled = ctxEdit.Enabled = has;
         btnDelete.Enabled = ctxDelete.Enabled = has;
+        btnToggle.Enabled = ctxToggle.Enabled = has;
+        btnBrowse.Enabled = ctxBrowse.Enabled = has && v!.Enabled;
+        btnOpenFolder.Enabled = ctxOpenFolder.Enabled = has && Directory.Exists(v!.DocumentRoot);
+
+        bool enabling = v is { Enabled: false };
+        btnToggle.Text = ctxToggle.Text = enabling ? "Enable" : "Disable";
+        btnToggle.Image = ctxToggle.Image = enabling ? _enableGlyph : _disableGlyph;
+
+        int total = _config.VHosts.Count;
+        int active = _config.VHosts.Count(x => x.Enabled);
+        var unreachable = _config.VHosts
+            .Where(x => x.Enabled && !HostsFile.PointsHere(x.ServerName, _loopbackNames))
+            .Select(x => x.ServerName)
+            .ToList();
+        lblSummary.Text = total == 0
+            ? "No virtual hosts yet. Add one to serve a project under its own name."
+            : $"{total} virtual host{(total == 1 ? "" : "s")} · {active} active" +
+              (unreachable.Count == 0
+                  ? ""
+                  : $" · add to hosts file: 127.0.0.1  {string.Join(" ", unreachable.Take(3))}{(unreachable.Count > 3 ? " …" : "")}");
+        lblSummary.ForeColor = unreachable.Count == 0 ? SystemColors.GrayText : UiTheme.StatusTransition;
+    }
+
+    // ─── Quick actions ────────────────────────────────────────────────────────
+
+    private void btnToggle_Click(object sender, EventArgs e)
+    {
+        if (Selected is not { } v) return;
+        v.Enabled = !v.Enabled;
+        ConfigChanged = true;
+        LoadVHosts();
+        Reselect(v);
+    }
+
+    private void btnBrowse_Click(object sender, EventArgs e)
+    {
+        if (Selected is not { Enabled: true } v) return;
+        int port = v.Port > 0 ? v.Port : _config.Apache.Port;
+        bool https = (_config.Apache.EnableSsl && port == _config.Apache.SslPort) ||
+                     (_config.Apache.ExtraPorts ?? []).Any(p => p.Enabled && p.IsSsl && p.Port == port);
+        string scheme = https ? "https" : "http";
+        bool defaultPort = (!https && port == 80) || (https && port == 443);
+        string url = $"{scheme}://{v.ServerName}{(defaultPort ? "" : $":{port}")}/";
+        try
+        {
+            Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, $"Could not open {url}:\n{ex.Message}", "Hamster Server",
+                MessageBoxButtons.OK, MessageBoxIcon.Warning);
+        }
+    }
+
+    private void btnOpenFolder_Click(object sender, EventArgs e)
+    {
+        if (Selected is not { } v || !Directory.Exists(v.DocumentRoot)) return;
+        Process.Start("explorer.exe", $"\"{v.DocumentRoot}\"");
+    }
+
+    private void Reselect(VHostEntry v)
+    {
+        var item = lvVHosts.Items.Cast<ListViewItem>().FirstOrDefault(i => i.Tag == v);
+        if (item is null) return;
+        item.Selected = true;
+        item.Focused = true;
+        item.EnsureVisible();
     }
 
     // ─── Toolbar events ───────────────────────────────────────────────────────

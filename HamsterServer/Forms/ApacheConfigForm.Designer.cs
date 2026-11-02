@@ -129,6 +129,7 @@ partial class ApacheConfigForm
         //
         // txtCustomDirectives
         //
+        txtCustomDirectives.AcceptsReturn = true;
         txtCustomDirectives.AcceptsTab = true;
         txtCustomDirectives.Dock = DockStyle.Fill;
         txtCustomDirectives.Location = new Point(6, 44);

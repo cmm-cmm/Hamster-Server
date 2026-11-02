@@ -3,6 +3,7 @@ using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Text.Json;
 using HamsterServer.Models;
 
 namespace HamsterServer.Core;
@@ -41,16 +42,27 @@ public class ServerManager : IDisposable
     private int _phpMemorySweepSeconds;          // current timer period, for RescheduleSweep
     private int _phpMemoryMissedWindows;         // consecutive checks that never caught an idle gap
     private DateTime _lastPhpMemoryRestart = DateTime.MinValue;
-    private int _phpMemoryRestartCount;
-    private DateTime _phpMemoryWindowStart = DateTime.MinValue;
     private const int PhpMemorySweepIntervalSec = 60;
     private const int PhpMemorySweepBusyIntervalSec = 15;  // within 80% of the threshold
     private const int PhpMemoryIdleWaitSec = 300;     // give the pool this long to fall quiet
     private const int PhpMemoryIdlePollMs = 250;
     private const int PhpMemoryCooldownMin = 10;      // settle time after a successful restart
-    private const int MaxPhpMemoryRestarts = 3;       // per window, before the feature backs off
-    private const int PhpMemoryRestartWindowMin = 60;
     private const int MaxMissedWindowsBeforeWarning = 3;
+    // A pool that has just restarted weighing this much of the threshold can never get under it.
+    private const double FloorToThresholdLimit = 0.8;
+
+    /// <summary>
+    /// Working set of one idle php-cgi worker, in MB. Measured at ~35 MB when the worker count was
+    /// tuned, and confirmed at 40.2 MB across nine recycles of a 12-worker pool in production use.
+    /// </summary>
+    public const int WorkerBaselineMb = 40;
+
+    /// <summary>
+    /// How much room the automatic threshold leaves above the pool's floor. Three times the floor
+    /// puts a leaky application roughly two hours between recycles instead of fifty minutes, while
+    /// still reclaiming memory long before it matters on a development machine.
+    /// </summary>
+    public const int AutoThresholdFactor = 3;
 
     // Paths cached so stop/dispose can find surviving child processes
     private string? _httpdExePath;
@@ -766,7 +778,7 @@ public class ServerManager : IDisposable
         if (Interlocked.CompareExchange(ref _phpMemorySweepRunning, 1, 0) != 0) return;
         try
         {
-            int thresholdMb = Config.Php.MemoryRestartThreshold;
+            int thresholdMb = EffectiveMemoryThresholdMb;
             if (_disposed || thresholdMb <= 0 || !_phpDesiredRunning || !IsPhpRunning) return;
             if ((DateTime.UtcNow - _lastPhpMemoryRestart).TotalMinutes < PhpMemoryCooldownMin) return;
 
@@ -780,8 +792,6 @@ public class ServerManager : IDisposable
                 return;
             }
 
-            if (!IsPhpMemoryRestartAllowed(usedMb, thresholdMb)) return;
-
             Log($"[WARN] PHP pool is using {usedMb} MB (threshold {thresholdMb} MB) — " +
                 $"waiting for it to go idle before restarting…");
 
@@ -791,8 +801,7 @@ public class ServerManager : IDisposable
                 return;
             }
 
-            if (await RestartPhpPoolForMemoryAsync(usedMb))
-                RecordPhpMemoryRestart();
+            await RestartPhpPoolForMemoryAsync(usedMb, thresholdMb);
         }
         catch (Exception ex)
         {
@@ -828,44 +837,26 @@ public class ServerManager : IDisposable
     }
 
     /// <summary>
-    /// Rate-limits the feature. A threshold set below what the pool uses at rest would otherwise
-    /// restart it forever, so after <see cref="MaxPhpMemoryRestarts"/> restarts in one window the
-    /// watchdog stops and says what to change instead of thrashing the server.
+    /// Decides whether the threshold itself is wrong, by looking at what the pool weighs
+    /// immediately after a recycle. That reading is the pool's floor; if it already sits near the
+    /// threshold, no amount of recycling will ever get under it and the watchdog would thrash.
     /// <para>
-    /// Only actual restarts count, which is why this is a read and <see cref="RecordPhpMemoryRestart"/>
-    /// is the write: charging the budget up front meant a pool that merely stayed busy exhausted it
-    /// without ever being recycled, and the watchdog then switched itself off for an hour.
+    /// This replaces a "max N restarts per hour" budget, which measured the wrong thing. Real
+    /// operational logs show a leaky application needing seven recycles across a working day, two
+    /// of them 47 minutes apart — healthy behaviour that the old rule would have read as a fault
+    /// and switched the watchdog off for an hour. The 10-minute cooldown already caps the rate;
+    /// this checks the one condition the cooldown cannot.
     /// </para>
     /// </summary>
-    private bool IsPhpMemoryRestartAllowed(long usedMb, int thresholdMb)
+    private void CheckThresholdIsReachable(long floorMb, int thresholdMb)
     {
-        lock (_phpCrashLock)
-        {
-            var now = DateTime.UtcNow;
-            if ((now - _phpMemoryWindowStart).TotalMinutes > PhpMemoryRestartWindowMin)
-            {
-                _phpMemoryRestartCount = 0;
-                _phpMemoryWindowStart = now;
-            }
+        if (floorMb < thresholdMb * FloorToThresholdLimit) return;
 
-            if (_phpMemoryRestartCount < MaxPhpMemoryRestarts) return true;
-
-            Log($"[ERROR] PHP pool hit the {thresholdMb} MB threshold {MaxPhpMemoryRestarts} times " +
-                $"in {PhpMemoryRestartWindowMin} minutes (now {usedMb} MB). Memory-based restarts " +
-                "are paused — raise Settings → PHP → \"Restart pool above\", or lower Workers.");
-            StopPhpMemoryWatchdog();
-            return false;
-        }
-    }
-
-    private void RecordPhpMemoryRestart()
-    {
-        lock (_phpCrashLock)
-        {
-            if (_phpMemoryWindowStart == DateTime.MinValue) _phpMemoryWindowStart = DateTime.UtcNow;
-            _phpMemoryRestartCount++;
-        }
-        _phpMemoryMissedWindows = 0;
+        Log($"[ERROR] The PHP pool still uses {floorMb} MB right after a recycle, against a " +
+            $"{thresholdMb} MB threshold — recycling cannot get it below that, so memory restarts " +
+            "are paused. Raise Settings → PHP → \"Restart pool above\" (or switch it to Auto), " +
+            "or lower Workers.");
+        StopPhpMemoryWatchdog();
     }
 
     /// <summary>
@@ -904,7 +895,7 @@ public class ServerManager : IDisposable
     }
 
     /// <summary>Returns true only when the pool was actually recycled.</summary>
-    private async Task<bool> RestartPhpPoolForMemoryAsync(long usedMb)
+    private async Task<bool> RestartPhpPoolForMemoryAsync(long usedMb, int thresholdMb)
     {
         await _phpGate.WaitAsync();
         try
@@ -924,9 +915,14 @@ public class ServerManager : IDisposable
             await Task.Delay(DelayRestartPauseMs);
             await StartPhpCoreAsync();
             _lastPhpMemoryRestart = DateTime.UtcNow;
+            _phpMemoryMissedWindows = 0;
 
             long afterMb = GetPhpPoolWorkingSetBytes() / 1024 / 1024;
             Log($"[OK] PHP pool recycled — memory is now {afterMb} MB (was {usedMb} MB).");
+
+            // The post-recycle figure is the pool's floor, and the only reliable signal that the
+            // threshold was set below what the pool can ever reach.
+            CheckThresholdIsReachable(afterMb, thresholdMb);
             return true;
         }
         finally
@@ -951,8 +947,42 @@ public class ServerManager : IDisposable
         return candidates.FirstOrDefault(c => File.Exists(Path.Combine(c, "bin", "httpd.exe")));
     }
 
+    /// <summary>
+    /// Runs <c>httpd -t</c> against a throw-away httpd.conf built from the live configuration with
+    /// <paramref name="customDirectives"/> substituted, so a broken directive is rejected before it
+    /// is saved. Without this, saving one while Apache ran stopped Apache and then failed its own
+    /// pre-start config test — leaving the server down over a typo.
+    /// </summary>
+    public async Task<(bool Ok, string Output)> TestApacheConfigAsync(string customDirectives)
+    {
+        var apacheDir = FindApacheDir();
+        if (apacheDir is null) return (true, "Apache not found — configuration was not tested.");
+
+        var configDir = Path.Combine(RootDir, "config");
+        var testConf = Path.Combine(configDir, $".httpd-test-{Guid.NewGuid():N}.conf");
+        try
+        {
+            var candidate = JsonSerializer.Deserialize<AppConfig>(JsonSerializer.Serialize(Config))!;
+            candidate.Apache.CustomDirectives = customDirectives;
+            new ApacheConfigWriter(RootDir, candidate)
+                .WriteHttpdConf(testConf, apacheDir, Path.Combine(RootDir, "www"), configDir);
+
+            var httpdExe = Path.Combine(apacheDir, "bin", "httpd.exe");
+            var (ok, output) = await RunCaptureAsync(httpdExe, $"-t -f \"{testConf}\"", apacheDir);
+            return (ok, output.Replace(testConf, "httpd.conf", StringComparison.OrdinalIgnoreCase).Trim());
+        }
+        catch (Exception ex)
+        {
+            return (false, ex.Message);
+        }
+        finally
+        {
+            try { File.Delete(testConf); } catch { /* a leftover test file is harmless */ }
+        }
+    }
+
     private static async Task<(bool ok, string output)> RunCaptureAsync(
-        string exe, string args, string workDir)
+        string exe, string args, string workDir, int timeoutMs = 30_000)
     {
         try
         {
@@ -973,7 +1003,19 @@ public class ServerManager : IDisposable
             // Read both streams concurrently to avoid deadlock when one buffer fills
             var errTask = p.StandardError.ReadToEndAsync();
             var stdTask = p.StandardOutput.ReadToEndAsync();
-            await p.WaitForExitAsync();
+            // A config test that never returns (a directive waiting on a network share, an
+            // antivirus hold on the binary) used to park the start sequence — and the gate it
+            // holds — forever.
+            using var timeout = new CancellationTokenSource(timeoutMs);
+            try
+            {
+                await p.WaitForExitAsync(timeout.Token);
+            }
+            catch (OperationCanceledException)
+            {
+                try { p.Kill(entireProcessTree: true); } catch { }
+                return (false, $"{Path.GetFileName(exe)} {args} did not finish within {timeoutMs / 1000} s.");
+            }
             return (p.ExitCode == 0, await errTask + await stdTask);
         }
         catch (Exception ex) { return (false, ex.Message); }
@@ -1072,6 +1114,75 @@ public class ServerManager : IDisposable
     }
 
     /// <summary>
+    /// The threshold the watchdog actually uses: either the configured number, or one derived from
+    /// the worker count when Auto is on. Exposed so the settings dialog can show the same figure
+    /// the server will apply rather than a second guess at it.
+    /// </summary>
+    public int EffectiveMemoryThresholdMb => Config.Php.MemoryRestartAuto
+        ? AutoMemoryThresholdMb(Config.Php.Workers)
+        : Config.Php.MemoryRestartThreshold;
+
+    /// <summary>
+    /// Automatic threshold for a given worker count: the pool's expected floor times
+    /// <see cref="AutoThresholdFactor"/>, never below 512 MB (a small pool still needs headroom to
+    /// leak into) and never above half the machine's RAM (recycling is pointless if the box is
+    /// already swapping).
+    /// </summary>
+    public static int AutoMemoryThresholdMb(int workers)
+    {
+        long floor = (long)Math.Clamp(workers, 1, 256) * WorkerBaselineMb;
+        long ceiling = 65_536;
+        long totalRamMb = TotalRamMb;
+        if (totalRamMb > 0) ceiling = Math.Min(ceiling, Math.Max(512, totalRamMb / 2));
+
+        return (int)Math.Clamp(floor * AutoThresholdFactor, 512, ceiling);
+    }
+
+    /// <summary>Total RAM the runtime can address, in MB, or 0 when it cannot be read.</summary>
+    public static long TotalRamMb
+    {
+        get
+        {
+            try { return GC.GetGCMemoryInfo().TotalAvailableMemoryBytes / 1024 / 1024; }
+            catch { return 0; }
+        }
+    }
+
+    /// <summary>What the machine allows, and which of the two limits is doing the deciding.</summary>
+    public readonly record struct WorkerAdvice(int Workers, int Cores, long TotalRamMb, bool RamLimited);
+
+    /// <summary>
+    /// Worker count this machine can actually carry, given its cores and its RAM.
+    /// <para>
+    /// CPU sets the useful ceiling: workers are processes, and a measured load ramp showed 24 of
+    /// them on a 12-core box idling at 891 MB while serving fewer requests than 8 did — so this
+    /// never suggests more than 8 however many cores are present.
+    /// </para>
+    /// <para>
+    /// RAM sets the hard limit, and it bites on small machines: the worst case is every worker
+    /// reaching <paramref name="memoryLimitMb"/> at once, so the suggestion is cut to fit inside
+    /// 70% of RAM. On 4 GB with a 512 MB limit that is 5 workers, not 8.
+    /// </para>
+    /// </summary>
+    public static WorkerAdvice SuggestWorkers(int memoryLimitMb)
+    {
+        int cores = Environment.ProcessorCount;
+        long totalRamMb = TotalRamMb;
+
+        int byCpu = Math.Clamp(cores, 4, 8);
+        int byRam = byCpu;
+        bool ramLimited = false;
+
+        if (totalRamMb > 0 && memoryLimitMb > 0)
+        {
+            byRam = (int)Math.Max(1, totalRamMb * 70 / 100 / memoryLimitMb);
+            ramLimited = byRam < byCpu;
+        }
+
+        return new WorkerAdvice(Math.Clamp(Math.Min(byCpu, byRam), 1, 256), cores, totalRamMb, ramLimited);
+    }
+
+    /// <summary>
     /// Total working set of every php-cgi process belonging to this installation, in bytes, or 0
     /// when PHP is not running. Counts the whole pool, not just the tracked parent: the parent is
     /// a supervisor and the memory that actually accumulates lives in the worker children.
@@ -1165,7 +1276,7 @@ public class ServerManager : IDisposable
     /// Process.MainModule answers the same question, but it enumerates every loaded module of
     /// the target — with a couple of dozen PHP workers that turned a stop into a ~19 s wait.
     /// </summary>
-    private static string? TryGetProcessImagePath(int pid)
+    internal static string? TryGetProcessImagePath(int pid)
     {
         IntPtr handle = OpenProcess(ProcessQueryLimitedInformation, false, pid);
         if (handle == IntPtr.Zero) return null;
@@ -1301,32 +1412,58 @@ public class ServerManager : IDisposable
     // ─── Settings invalidation ────────────────────────────────────────────────
 
     /// <summary>
-    /// Re-reads <see cref="PhpSettings.MemoryRestartThreshold"/> after the settings dialog saved.
-    /// Changing the threshold does not warrant bouncing PHP, and editing it is also how the user
-    /// answers a "restarts are paused" message, so the rate-limit window starts over here.
+    /// Re-reads the memory settings after the settings dialog saved. Changing the threshold does
+    /// not warrant bouncing PHP, and editing it is also how the user answers a "restarts are
+    /// paused" message — re-arming the timer here is what lifts that pause.
     /// </summary>
     public void ApplyPhpMemorySettings()
     {
-        lock (_phpCrashLock)
-        {
-            _phpMemoryRestartCount = 0;
-            _phpMemoryWindowStart = DateTime.UtcNow;
-        }
-
+        _phpMemoryMissedWindows = 0;
         if (!_disposed && _phpDesiredRunning && IsPhpRunning) StartPhpMemoryWatchdog();
         else StopPhpMemoryWatchdog();
     }
 
-    public void SynchronizePhpIni()
+    /// <summary>
+    /// Regenerates php.ini for every installed runtime from <see cref="Config"/>.
+    /// <para>
+    /// Never throws. Every caller is an <c>async void</c> UI handler, where an exception — a php.ini
+    /// held open by an editor or an antivirus scan, a read-only folder — escaped as the generic crash
+    /// box and abandoned the restart sequence half-way. A runtime that cannot be written is logged and
+    /// skipped so the others still get the new profile.
+    /// </para>
+    /// </summary>
+    /// <returns><c>true</c> when every runtime was written.</returns>
+    public bool SynchronizePhpIni()
     {
         var configDir = Path.Combine(RootDir, "config");
         var phpBaseDir = Path.Combine(RootDir, "php");
-        if (!Directory.Exists(phpBaseDir)) return;
+        if (!Directory.Exists(phpBaseDir)) return true;
 
-        foreach (var phpDir in Directory.GetDirectories(phpBaseDir))
+        string[] runtimes;
+        try
         {
-            if (File.Exists(Path.Combine(phpDir, "php-cgi.exe")))
-                _configWriter.WritePhpIni(phpDir, configDir, forceRegenerate: true);
+            runtimes = Directory.GetDirectories(phpBaseDir);
         }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            Log($"[ERROR] Cannot list PHP runtimes in {phpBaseDir}: {ex.Message}");
+            return false;
+        }
+
+        bool allWritten = true;
+        foreach (var phpDir in runtimes)
+        {
+            if (!File.Exists(Path.Combine(phpDir, "php-cgi.exe"))) continue;
+            try
+            {
+                _configWriter.WritePhpIni(phpDir, configDir, forceRegenerate: true);
+            }
+            catch (Exception ex)
+            {
+                allWritten = false;
+                Log($"[ERROR] Cannot regenerate php.ini for PHP {Path.GetFileName(phpDir)}: {ex.Message}");
+            }
+        }
+        return allWritten;
     }
 }

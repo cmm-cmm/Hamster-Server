@@ -15,9 +15,19 @@ public partial class HamsterServerForm : Form
     private readonly string _rootDir;
     private readonly ConfigManager _configMgr;
     private readonly PhpVersionManager _phpMgr;
+    private PhpUpdateService _phpUpdates = null!;
+    private System.Windows.Forms.Timer _phpUpdateTimer = null!;
+    private readonly CancellationTokenSource _appCancellation = new();
+    private string? _announcedPhpUpdate;
     private ServerManager _server = null!;
     private LogWriter _logWriter = null!;
     private NotifyIcon _tray = null!;
+    private ContextMenuStrip _trayMenu = null!;
+    private ToolStripMenuItem _trayShowHide = null!;
+    private ToolStripMenuItem _trayStartAll = null!;
+    private ToolStripMenuItem _trayStopAll = null!;
+    private ToolStripMenuItem _trayBrowser = null!;
+    private ToolStripMenuItem _trayExit = null!;
     private bool _isExiting;
     private bool _updatingUI;
     private int _logLineCount;
@@ -50,7 +60,6 @@ public partial class HamsterServerForm : Form
 
         EnableDoubleBuffering(lvServices, rtbLog);
         InitServicesList();
-        InitToolbarIcons();
         InitLogTimer();
 
         _rootDir = ResolveRootDir();
@@ -87,7 +96,16 @@ public partial class HamsterServerForm : Form
         _server.LogReceived += OnLog;
         _server.StatusChanged += OnStatusChanged;
 
+        _phpUpdates = new PhpUpdateService(_phpMgr, _server);
+        _phpUpdates.LogReceived += OnLog;
+        _phpUpdates.StateChanged += (_, _) => UpdatePhpUpdateIndicator();
+        _phpUpdates.Updated += OnPhpUpdated;
+        InitPhpUpdateTimer();
+
         InitTray();
+        // After InitTray: the tray menu items are created there, and every glyph — tray included —
+        // is assigned in this one method.
+        InitToolbarIcons();
         InitTaskbar();
         InitHealthTimer();
         PopulatePhpVersions();
@@ -140,7 +158,7 @@ public partial class HamsterServerForm : Form
 
     private void InitServicesList()
     {
-        _statusIcons = new ImageList(components) { ImageSize = new Size(16, 16), ColorDepth = ColorDepth.Depth32Bit };
+        _statusIcons = new ImageList(components) { ImageSize = UiTheme.IconBox, ColorDepth = ColorDepth.Depth32Bit };
         foreach (var color in new[]
                  { UiTheme.StatusStopped, UiTheme.StatusRunning, UiTheme.StatusTransition, UiTheme.StatusError })
         {
@@ -260,6 +278,19 @@ public partial class HamsterServerForm : Form
         SetIcon(btnSvcStop, UiTheme.Glyph.Stop, UiTheme.StatusError);
         SetIcon(btnSvcConfig, UiTheme.Glyph.Settings, UiTheme.AccentNeutral);
         SetIcon(btnPhpVersions, UiTheme.Glyph.Download, UiTheme.AccentAction);
+
+        // Tray menu — the same actions as the toolbar and File menu, so the same glyphs.
+        SetIcon(_trayShowHide, UiTheme.Glyph.Minimize, UiTheme.AccentNeutral);
+        SetIcon(_trayStartAll, UiTheme.Glyph.Play, UiTheme.StatusRunning);
+        SetIcon(_trayStopAll, UiTheme.Glyph.Stop, UiTheme.StatusError);
+        SetIcon(_trayBrowser, UiTheme.Glyph.World, UiTheme.AccentHttp);
+        SetIcon(_trayExit, UiTheme.Glyph.Exit, UiTheme.StatusError);
+
+        // Status-bar notice of a PHP patch — amber, like every other "something to act on" signal.
+        SetIcon(lblStatusPhpUpdate, UiTheme.Glyph.Download, UiTheme.StatusTransition);
+
+        // Show the glyphs at the size they were rendered for this DPI instead of resampling them.
+        UiTheme.ApplyIconScaling(menuStrip, toolStrip, statusStrip, ctxServices, tsLog, _trayMenu);
     }
 
     private static void SetIcon(ToolStripItem item, string glyph, Color color)
@@ -319,8 +350,31 @@ public partial class HamsterServerForm : Form
 
     private void ctxServices_Opening(object sender, System.ComponentModel.CancelEventArgs e)
     {
+        // Every command here acts on SelectedServiceRow, which falls back to Apache when nothing is
+        // selected — so right-clicking the blank area under the PHP row opened Apache's settings.
+        // Select the row under the pointer explicitly, and offer no menu when there is none.
+        // A keyboard-opened menu (Shift+F10, Menu key) has the pointer anywhere: keep the selection.
+        var hit = lvServices.HitTest(lvServices.PointToClient(Cursor.Position)).Item;
+        if (hit is not null)
+        {
+            if (!hit.Selected)
+            {
+                lvServices.SelectedItems.Clear();
+                hit.Selected = true;
+            }
+            hit.Focused = true;
+        }
+        else if (lvServices.SelectedItems.Count == 0)
+        {
+            e.Cancel = true;
+            return;
+        }
+
+        UpdateServiceButtons();
         ctxSvcStart.Enabled = btnSvcStart.Enabled;
         ctxSvcStop.Enabled = btnSvcStop.Enabled;
+        // Name the target, so the menu says which service it is about to act on.
+        ctxSvcConfig.Text = SelectedServiceRow == RowPhp ? "&Configure PHP…" : "&Configure Apache…";
     }
 
     private void UpdateServiceButtons()
@@ -398,17 +452,27 @@ public partial class HamsterServerForm : Form
     {
         _tray = new NotifyIcon { Icon = this.Icon, Text = "Hamster Server", Visible = true };
 
-        var menu = new ContextMenuStrip();
-        menu.Items.Add("Show / Hide", null, (_, _) => ToggleVisibility());
-        menu.Items.Add(new ToolStripSeparator());
-        menu.Items.Add("Start All", null, async (_, _) => await _server.StartAllAsync());
-        menu.Items.Add("Stop All", null, async (_, _) => await _server.StopAllAsync());
-        menu.Items.Add(new ToolStripSeparator());
-        menu.Items.Add("Open Browser", null, (_, _) => OpenBrowser());
-        menu.Items.Add(new ToolStripSeparator());
-        menu.Items.Add("Exit", null, (_, _) => ExitApp());
+        _trayMenu = new ContextMenuStrip(components);
+        _trayShowHide = new ToolStripMenuItem("Show / Hide", null, (_, _) => ToggleVisibility());
+        _trayStartAll = new ToolStripMenuItem("Start All", null, async (_, _) => await _server.StartAllAsync());
+        _trayStopAll = new ToolStripMenuItem("Stop All", null, async (_, _) => await _server.StopAllAsync());
+        _trayBrowser = new ToolStripMenuItem("Open Browser", null, (_, _) => OpenBrowser());
+        _trayExit = new ToolStripMenuItem("Exit", null, (_, _) => ExitApp());
+        _trayMenu.Items.AddRange(new ToolStripItem[]
+        {
+            _trayShowHide, new ToolStripSeparator(),
+            _trayStartAll, _trayStopAll, new ToolStripSeparator(),
+            _trayBrowser, new ToolStripSeparator(),
+            _trayExit
+        });
+        // Same enable rules as the toolbar, evaluated when the menu opens rather than on every refresh.
+        _trayMenu.Opening += (_, _) =>
+        {
+            _trayStartAll.Enabled = tsbStartAll.Enabled;
+            _trayStopAll.Enabled = tsbStopAll.Enabled;
+        };
 
-        _tray.ContextMenuStrip = menu;
+        _tray.ContextMenuStrip = _trayMenu;
         _tray.DoubleClick += (_, _) => ToggleVisibility();
     }
 
@@ -780,18 +844,103 @@ public partial class HamsterServerForm : Form
         }
     }
 
-    private void btnPhpVersions_Click(object sender, EventArgs e)
+    private async void btnPhpVersions_Click(object sender, EventArgs e)
     {
-        using var form = new PhpVersionManagerForm(
-            _phpMgr, _configMgr.Config.Php.CurrentVersion);
+        using var form = new PhpVersionManagerForm(_phpMgr, _configMgr.Config, _phpUpdates, SwitchPhpFromManagerAsync);
         form.ShowDialog(this);
-        if (!form.VersionsChanged) return;
+
+        if (form.ConfigChanged)
+        {
+            await TrySaveConfigAsync();
+            UpdatePhpUpdateIndicator();
+            // Turning updates on (or to Auto) should act now, not at the next six-hourly tick.
+            if (_configMgr.Config.Php.UpdateMode != PhpUpdateMode.Off) await RunPhpUpdateCheckAsync();
+        }
+        if (!form.VersionsChanged && !form.RuntimeFilesChanged) return;
 
         PopulatePhpVersions();
-        if (form.VersionInstalled)
+        if (form.RuntimeFilesChanged)
             _server.SynchronizePhpIni();
         RefreshUI();
         LogDirect($"[{DateTime.Now:HH:mm:ss}] PHP runtime list updated.");
+    }
+
+    /// <summary>"Use this version" in the manager: the same switch as the combo, then persisted.</summary>
+    private async Task SwitchPhpFromManagerAsync(string version)
+    {
+        await _server.SwitchPhpVersionAsync(version);
+        await TrySaveConfigAsync();
+        PopulatePhpVersions();
+        RefreshUI();
+    }
+
+    // ─── PHP patch updates ────────────────────────────────────────────────────
+
+    // First check a minute after start-up — not during it, when the user is waiting for the stack —
+    // then every six hours for as long as the app runs.
+    private void InitPhpUpdateTimer()
+    {
+        _phpUpdateTimer = new System.Windows.Forms.Timer { Interval = 60_000 };
+        _phpUpdateTimer.Tick += async (_, _) =>
+        {
+            _phpUpdateTimer.Interval = (int)TimeSpan.FromHours(6).TotalMilliseconds;
+            await RunPhpUpdateCheckAsync();
+        };
+        _phpUpdateTimer.Start();
+    }
+
+    private async Task RunPhpUpdateCheckAsync()
+    {
+        try
+        {
+            await _phpUpdates.CheckAsync(_configMgr.Config.Php.UpdateMode, _appCancellation.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            // The app is closing.
+        }
+    }
+
+    private void UpdatePhpUpdateIndicator()
+    {
+        if (_isExiting || IsDisposed) return;
+        var version = _phpUpdates.AvailableUpdate?.Version;
+        (bool visible, string text) = _phpUpdates.State switch
+        {
+            PhpUpdateState.UpdateAvailable when version is not null => (true, $"PHP {version} available"),
+            PhpUpdateState.Installing => (true, $"Installing PHP {version}…"),
+            PhpUpdateState.WaitingToSwitch => (true, $"PHP {version} ready, switching when idle"),
+            _ => (false, "")
+        };
+        lblStatusPhpUpdate.Visible = visible;
+        lblStatusPhpUpdate.Text = text;
+        lblStatusPhpUpdate.ToolTipText = visible ? "Open the PHP Version Manager" : "";
+
+        // One balloon per version in Notify mode; Auto announces the result instead (OnPhpUpdated).
+        if (_phpUpdates.State == PhpUpdateState.UpdateAvailable && version is not null &&
+            _configMgr.Config.Php.UpdateMode == PhpUpdateMode.Notify &&
+            !string.Equals(_announcedPhpUpdate, version, StringComparison.OrdinalIgnoreCase))
+        {
+            _announcedPhpUpdate = version;
+            _tray.ShowBalloonTip(5000, "Hamster Server",
+                $"PHP {version} is available. Open the PHP Version Manager to install it.", ToolTipIcon.Info);
+        }
+    }
+
+    private async void OnPhpUpdated(object? sender, PhpUpdatedEventArgs e)
+    {
+        if (_isExiting || IsDisposed) return;
+        await TrySaveConfigAsync();
+        PopulatePhpVersions();
+        RefreshUI();
+        UpdatePhpUpdateIndicator();
+        if (e.Switched)
+        {
+            string carried = e.CopiedFiles.Count == 0
+                ? ""
+                : $" {e.CopiedFiles.Count} extension file(s) carried over.";
+            _tray.ShowBalloonTip(5000, "Hamster Server", $"PHP updated {e.FromVersion} → {e.ToVersion}.{carried}", ToolTipIcon.Info);
+        }
     }
 
     // Every dialog that mutates AppConfig persists it through here. Without the catch a failed
@@ -818,7 +967,7 @@ public partial class HamsterServerForm : Form
     private async void btnSettings_Click(object sender, EventArgs e)
     {
         _phpMgr.Scan();
-        using var frm = new SettingsForm(_configMgr.Config, _rootDir);
+        using var frm = new SettingsForm(_configMgr.Config, _rootDir, ShowPhpConfigDialog);
         if (frm.ShowDialog(this) != DialogResult.OK || !frm.ConfigChanged) return;
 
         await TrySaveConfigAsync();
@@ -914,7 +1063,7 @@ public partial class HamsterServerForm : Form
 
     private async void btnPorts_Click(object sender, EventArgs e)
     {
-        using var frm = new PortsForm(_configMgr.Config);
+        using var frm = new PortsForm(_configMgr.Config, _rootDir);
         frm.ShowDialog(this);
         if (!frm.ConfigChanged) return;
 
@@ -975,17 +1124,53 @@ public partial class HamsterServerForm : Form
         }
     }
 
-    private void btnPhpConfig_Click(object sender, EventArgs e)
+    private void btnPhpConfig_Click(object sender, EventArgs e) => ShowPhpConfigDialog(this);
+
+    /// <summary>
+    /// The one editor for php.ini directives and extensions — reached from the Services list, the
+    /// Tools menu and the Settings dialog's PHP tab, which passes itself as the owner.
+    /// </summary>
+    private void ShowPhpConfigDialog(IWin32Window owner)
     {
         var ver = cmbPhpVersion.SelectedItem?.ToString();
         var phpInfo = string.IsNullOrWhiteSpace(ver) ? null : _phpMgr.Versions.FirstOrDefault(v => v.Version == ver);
         if (phpInfo == null)
         {
-            MessageBox.Show("No PHP version selected.", "Hamster Server", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            MessageBox.Show(owner, "No PHP version selected.", "Hamster Server", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return;
         }
-        using var frm = new PhpConfigForm(phpInfo, _server);
-        frm.ShowDialog(this);
+        using var frm = new PhpConfigForm(_configMgr.Config, phpInfo, ApplyPhpConfigAsync);
+        frm.ShowDialog(owner);
+        if (frm.ConfigChanged) RefreshUI();
+    }
+
+    /// <summary>
+    /// Persists what <see cref="PhpConfigForm"/> wrote into AppConfig and regenerates every
+    /// runtime's php.ini from it — the same path the Settings dialog takes, so the two can never
+    /// disagree about which extensions are on.
+    /// </summary>
+    private async Task ApplyPhpConfigAsync(bool restart)
+    {
+        await TrySaveConfigAsync();
+        // The reason for each runtime that failed is already in the log; restarting PHP now would
+        // only reload the old file, so stop here and let the dialog say so.
+        if (!_server.SynchronizePhpIni())
+            throw new IOException("php.ini could not be regenerated for every PHP runtime — see the log for details.");
+
+        if (!_server.IsPhpRunning)
+        {
+            LogDirect($"[{DateTime.Now:HH:mm:ss}] PHP settings saved — start PHP to apply.");
+            return;
+        }
+        if (!restart)
+        {
+            LogDirect($"[{DateTime.Now:HH:mm:ss}] PHP settings saved — restart PHP to apply.");
+            return;
+        }
+
+        LogDirect($"[{DateTime.Now:HH:mm:ss}] PHP settings changed — restarting PHP…");
+        await _server.StopPhpAsync();
+        await _server.StartPhpAsync();
     }
 
     // ─── Helpers ──────────────────────────────────────────────────────────────
@@ -1000,6 +1185,8 @@ public partial class HamsterServerForm : Form
     {
         if (_isExiting) return;
         _healthTimer.Stop();
+        _phpUpdateTimer.Stop();
+        _appCancellation.Cancel();   // abandons a download or a wait-for-idle; staging folders clean themselves up
         _logTimer.Stop();
         FlushLogQueue();        // drain whatever is still queued while the UI is alive
         _isExiting = true;

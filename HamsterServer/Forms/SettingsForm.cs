@@ -11,26 +11,104 @@ public partial class SettingsForm : Form
     public bool NeedsApacheRestart { get; private set; }
     public bool NeedsPhpRestart { get; private set; }
 
-    public SettingsForm(AppConfig config, string rootDir)
+    private readonly Action<IWin32Window>? _openPhpConfig;
+
+    /// <param name="openPhpConfig">
+    /// Opens PHP Configuration on top of this dialog: the one place php.ini directives and
+    /// extensions are edited. Null hides the button (tests construct the form without a host).
+    /// </param>
+    public SettingsForm(AppConfig config, string rootDir, Action<IWin32Window>? openPhpConfig = null)
     {
         InitializeComponent();
         cboServerMode.DataSource = Enum.GetValues<ServerMode>();
         _config = config;
         _rootDir = rootDir;
-        PopulateTimezones();
+        _openPhpConfig = openPhpConfig;
+        btnOpenPhpConfig.Visible = openPhpConfig is not null;
         LoadSettings();
         chkSsl.CheckedChanged += (_, _) => UpdateSslCertVisibility();
         chkOpcache.CheckedChanged += (_, _) => UpdateOpcacheVisibility();
         chkAllowLanAccess.CheckedChanged += (_, _) => UpdateRiskHighlights();
         nudWorkers.ValueChanged += (_, _) => UpdateRiskHighlights();
-        nudMemoryLimit.ValueChanged += (_, _) => UpdateRiskHighlights();
-        // A DPI change rescales the font; the column width is measured from it, so re-measure.
-        clbExtensions.FontChanged += (_, _) => LayoutExtensionColumns();
+        // The automatic threshold is derived from the worker count, and the manual warning is
+        // measured against it, so both follow either field changing.
+        nudWorkers.ValueChanged += (_, _) => UpdateMemoryRestartHint();
+        nudWorkers.ValueChanged += (_, _) => UpdateWorkersHint();
+        nudMemoryRestart.ValueChanged += (_, _) => UpdateMemoryRestartHint();
+        chkMemoryRestartAuto.CheckedChanged += (_, _) => UpdateMemoryRestartHint();
         UpdateSslCertVisibility();
         UpdateOpcacheVisibility();
         UpdateRiskHighlights();
+        UpdateMemoryRestartHint();
+        UpdateWorkersHint();
         InitIcons();
         InitTooltips();
+    }
+
+    /// <summary>
+    /// Reports what this machine can carry, so the worker count is chosen against the hardware
+    /// rather than guessed. CPU caps the useful number; RAM caps the safe one, and on a small
+    /// machine RAM is the binding limit — which is worth saying out loud rather than only
+    /// colouring the field red after the fact.
+    /// </summary>
+    private void UpdateWorkersHint()
+    {
+        // memory_limit is edited in PHP Configuration; read it live so the hint follows a change
+        // made there while this dialog is open.
+        var advice = ServerManager.SuggestWorkers(_config.Php.MemoryLimit);
+        int chosen = (int)nudWorkers.Value;
+
+        string machine = advice.TotalRamMb > 0
+            ? $"{advice.Cores} cores, {advice.TotalRamMb / 1024.0:0.#} GB RAM"
+            : $"{advice.Cores} cores";
+        string why = advice.RamLimited ? ", RAM-limited" : "";
+
+        lblWorkersHint.Text = $"Suggested: {advice.Workers}  ({machine}{why}, {_config.Php.MemoryLimit} MB memory_limit)";
+        lblWorkersHint.ForeColor = chosen > advice.Workers
+            ? UiTheme.StatusTransition
+            : SystemColors.GrayText;
+    }
+
+    /// <summary>
+    /// Shows what the pool restart threshold will actually be, because the number on its own says
+    /// nothing useful: whether it is generous or punishing depends entirely on the worker count.
+    /// In Auto the box is disabled and shows the derived value; typed by hand, the field is
+    /// highlighted when it sits so close to the pool's floor that recycling would be constant.
+    /// </summary>
+    private void UpdateMemoryRestartHint()
+    {
+        int workers = (int)nudWorkers.Value;
+        int floor = workers * ServerManager.WorkerBaselineMb;
+        int auto = ServerManager.AutoMemoryThresholdMb(workers);
+        bool isAuto = chkMemoryRestartAuto.Checked;
+
+        nudMemoryRestart.Enabled = !isAuto;
+        if (isAuto)
+        {
+            nudMemoryRestart.Value = Math.Clamp(auto, nudMemoryRestart.Minimum, nudMemoryRestart.Maximum);
+            lblMemoryRestartHint.Text =
+                $"= {auto} MB  ({workers} × {ServerManager.WorkerBaselineMb} MB at rest × {ServerManager.AutoThresholdFactor})";
+            lblMemoryRestartHint.ForeColor = SystemColors.GrayText;
+            nudMemoryRestart.BackColor = UiTheme.FieldNormal;
+            return;
+        }
+
+        int chosen = (int)nudMemoryRestart.Value;
+        if (chosen == 0)
+        {
+            lblMemoryRestartHint.Text = "0 = never restart; reclaim by hand.";
+            lblMemoryRestartHint.ForeColor = SystemColors.GrayText;
+            nudMemoryRestart.BackColor = UiTheme.FieldNormal;
+            return;
+        }
+
+        // Under twice the floor the pool is recycled every time it does any real work.
+        bool tooTight = chosen < floor * 2;
+        lblMemoryRestartHint.Text = tooTight
+            ? $"Low — {floor} MB at rest. Suggest {auto} MB."
+            : $"~{floor} MB at rest. Suggested: {auto} MB.";
+        lblMemoryRestartHint.ForeColor = tooTight ? UiTheme.StatusTransition : SystemColors.GrayText;
+        nudMemoryRestart.BackColor = tooTight ? UiTheme.FieldWarning : UiTheme.FieldNormal;
     }
 
     /// <summary>
@@ -39,10 +117,47 @@ public partial class SettingsForm : Form
     /// </summary>
     private void InitIcons()
     {
-        UiTheme.ApplyGlyph(btnRecommendedExtensions, UiTheme.Glyph.Star, UiTheme.AccentAction);
-        UiTheme.ApplyGlyph(btnCheckAll, UiTheme.Glyph.SelectAll, UiTheme.AccentAction);
-        UiTheme.ApplyGlyph(btnUncheckAll, UiTheme.Glyph.ClearSelection, UiTheme.AccentNeutral);
         UiTheme.ApplyGlyph(btnApplyModeDefaults, UiTheme.Glyph.Wrench, UiTheme.AccentNeutral);
+        // Same glyph and colour as Tools > PHP Configuration, which this button opens. AutoSize
+        // wrapped its caption onto two lines inside the auto-sized flow panel, cutting it off — give
+        // it a fixed one-line width instead (the designer value scales with the font).
+        UiTheme.ApplyGlyph(btnOpenPhpConfig, UiTheme.Glyph.Page, UiTheme.LogPhp, autoSize: false);
+        btnOpenPhpConfig.Size = new Size(230, 30);
+
+        // Each tab carries the glyph and colour its subject has everywhere else in the app: Apache's
+        // server, PHP's code brackets, the cog for general behaviour.
+        var tabIcons = new ImageList(components) { ImageSize = UiTheme.IconBox, ColorDepth = ColorDepth.Depth32Bit };
+        tabIcons.Images.Add(UiTheme.CreateGlyph(UiTheme.Glyph.Server, UiTheme.LogApache));
+        tabIcons.Images.Add(UiTheme.CreateGlyph(UiTheme.Glyph.Code, UiTheme.LogPhp));
+        tabIcons.Images.Add(UiTheme.CreateGlyph(UiTheme.Glyph.Settings, UiTheme.AccentNeutral));
+        tabControl.ImageList = tabIcons;
+        tabControl.Padding = new Point(12, 5);
+        tabApache.ImageIndex = 0;
+        tabPhp.ImageIndex = 1;
+        tabGeneral.ImageIndex = 2;
+
+        AddIntro(tabApache, "How Apache answers requests: its name, connection limits, compression and HTTPS. " +
+                            "Ports and virtual hosts have their own windows under Tools.");
+        AddIntro(tabPhp, "How the PHP worker pool runs. Settings that end up in php.ini (memory limit, " +
+                         "upload size, timezone, extensions) are in PHP Configuration.");
+        AddIntro(tabGeneral, "Development or production defaults, what happens when Windows starts, " +
+                             "and whether other computers may connect.");
+    }
+
+    /// <summary>
+    /// One grey sentence at the top of a tab saying what it is for. Added after the tab's Fill layout,
+    /// so it docks first and pushes the layout down instead of overlapping it.
+    /// </summary>
+    private void AddIntro(TabPage tab, string text)
+    {
+        tab.Controls.Add(new Label
+        {
+            Dock = DockStyle.Top,
+            ForeColor = SystemColors.GrayText,
+            Height = 42,
+            Padding = new Padding(4, 0, 4, 8),
+            Text = text
+        });
     }
 
     /// <summary>
@@ -57,16 +172,15 @@ public partial class SettingsForm : Form
             : SystemColors.ControlText;
 
         long totalRamMb = (long)(GC.GetGCMemoryInfo().TotalAvailableMemoryBytes / 1024 / 1024);
-        long projectedMb = (long)nudWorkers.Value * (long)nudMemoryLimit.Value;
+        long projectedMb = (long)nudWorkers.Value * _config.Php.MemoryLimit;
         bool overcommitted = totalRamMb > 0 && projectedMb > totalRamMb * 0.70;
 
         nudWorkers.BackColor = overcommitted ? UiTheme.FieldWarning : UiTheme.FieldNormal;
-        nudMemoryLimit.BackColor = overcommitted ? UiTheme.FieldWarning : UiTheme.FieldNormal;
 
         lblMemoryWarning.Visible = overcommitted;
         if (overcommitted)
             lblMemoryWarning.Text =
-                $"{nudWorkers.Value} workers × {nudMemoryLimit.Value} MB = {projectedMb} MB worst case, " +
+                $"{nudWorkers.Value} workers × {_config.Php.MemoryLimit} MB memory_limit = {projectedMb} MB worst case, " +
                 $"against ~{totalRamMb} MB available.";
     }
 
@@ -86,191 +200,34 @@ public partial class SettingsForm : Form
         tt.SetToolTip(chkGzip, "Compress text responses (HTML, CSS, JS) to reduce bandwidth.");
         tt.SetToolTip(chkCache, "Send Expires headers so browsers cache static assets locally.");
         tt.SetToolTip(chkBrotli, "Brotli compression (15-25% smaller than Gzip). Requires mod_brotli.so in apache/Apache24/modules/.");
-        tt.SetToolTip(nudWorkers, "PHP-CGI worker processes. Each costs ~35 MB; 4-8 already saturates a dev machine.");
+        tt.SetToolTip(nudWorkers,
+            "PHP-CGI worker processes. The suggestion beside the box is the lower of what the CPU "
+            + "can use (4-8, measured) and what RAM allows at the configured memory limit.");
         tt.SetToolTip(nudMaxRequests, "Requests before a worker recycles. 0 = never recycle (required for FastCGI connection reuse).");
         tt.SetToolTip(nudMemoryRestart, "Restart the whole PHP pool once it uses this much memory, and only while it is idle. 0 = never.");
-        tt.SetToolTip(cboTimezone, "PHP date.timezone using an IANA identifier.");
+        tt.SetToolTip(chkMemoryRestartAuto,
+            "Derive the threshold from the worker count instead of fixing it. A number that suits "
+            + "4 workers leaves 12 workers being recycled every few minutes.");
         tt.SetToolTip(chkUseBundledCaCertificate,
             $"Configure cURL and OpenSSL to use {Path.Combine(_rootDir, "ssl", "cacert.pem")} for HTTPS requests.");
         tt.SetToolTip(cboServerMode, "Development: verbose errors, no caching.  Production: optimized config.");
         tt.SetToolTip(btnApplyModeDefaults, "Pre-fill workers, memory, and timeouts with optimal values for the selected mode.");
         tt.SetToolTip(btnBrowseSslCert, "Browse for SSL certificate file (.crt / .pem)");
         tt.SetToolTip(btnBrowseSslKey, "Browse for SSL private key file (.key / .pem)");
-        tt.SetToolTip(clbExtensions, "Tick to enable extension in php.ini. Scan reads php/{version}/ext/php_*.dll automatically.");
-        tt.SetToolTip(btnRecommendedExtensions,
-            "Select the recommended Hamster Server/XAMPP-compatible extensions available in this PHP version.");
-        tt.SetToolTip(btnCheckAll, "Enable all found extensions (may cause startup errors if a DLL is corrupt).");
-        tt.SetToolTip(btnUncheckAll, "Disable all extensions (not recommended — PHP will lose core functionality).");
+        tt.SetToolTip(btnOpenPhpConfig,
+            "Edit memory_limit, upload sizes, execution time, error reporting, timezone and extensions.");
         tt.SetToolTip(chkAllowLanAccess, "Off by default: Apache listens only on 127.0.0.1. Enable only on trusted networks.");
     }
 
-    // ─── PHP Extensions ───────────────────────────────────────────────────────
+    // ─── php.ini (edited in PHP Configuration) ────────────────────────────────
 
-    private void PopulateTimezones()
+    private void btnOpenPhpConfig_Click(object sender, EventArgs e)
     {
-        var timezones = new SortedSet<string>(StringComparer.OrdinalIgnoreCase)
-        {
-            "UTC",
-            "Asia/Ho_Chi_Minh"
-        };
-
-        try
-        {
-            foreach (var timezone in TimeZoneInfo.GetSystemTimeZones())
-            {
-                if (timezone.Id.Contains('/'))
-                    timezones.Add(timezone.Id);
-                else if (TimeZoneInfo.TryConvertWindowsIdToIanaId(timezone.Id, out var ianaId))
-                    timezones.Add(ianaId);
-            }
-        }
-        catch (TimeZoneNotFoundException)
-        {
-            // Keep the safe defaults if the OS timezone registry is unavailable.
-        }
-        catch (InvalidTimeZoneException)
-        {
-            // Keep the safe defaults if the OS contains corrupt timezone data.
-        }
-
-        var configuredTimezone = string.IsNullOrWhiteSpace(_config.Php.Timezone)
-            ? "Asia/Ho_Chi_Minh"
-            : _config.Php.Timezone.Trim();
-        timezones.Add(configuredTimezone);
-
-        cboTimezone.BeginUpdate();
-        cboTimezone.Items.Clear();
-        cboTimezone.Items.Add("UTC");
-        cboTimezone.Items.Add("Asia/Ho_Chi_Minh");
-        foreach (var timezone in timezones.Where(timezone =>
-                     !timezone.Equals("UTC", StringComparison.OrdinalIgnoreCase) &&
-                     !timezone.Equals("Asia/Ho_Chi_Minh", StringComparison.OrdinalIgnoreCase)))
-        {
-            cboTimezone.Items.Add(timezone);
-        }
-        cboTimezone.EndUpdate();
-        SelectTimezone(configuredTimezone);
-    }
-
-    private void SelectTimezone(string timezone)
-    {
-        cboTimezone.SelectedItem = cboTimezone.Items.Cast<string>()
-            .FirstOrDefault(item => item.Equals(timezone, StringComparison.OrdinalIgnoreCase));
-    }
-
-    /// <summary>
-    /// Scan php/{version}/ext/php_*.dll và populate clbExtensions.
-    /// Những extension nằm trong EnabledExtensions được tick sẵn.
-    /// Extension user đã enable nhưng không có DLL vẫn hiện (có thể là built-in).
-    /// </summary>
-    private void PopulateExtensions()
-    {
-        clbExtensions.Items.Clear();
-
-        var version = _config.Php.CurrentVersion;
-        var extDir = string.IsNullOrWhiteSpace(version)
-            ? null
-            : Path.Combine(_rootDir, "php", version, "ext");
-
-        var enabled = new HashSet<string>(_config.Php.EnabledExtensions, StringComparer.OrdinalIgnoreCase);
-
-        // Fix 4.2: bọc scan trong try-catch — tránh crash khi ext/ bị locked/mất quyền
-        HashSet<string> fromDisk;
-        try
-        {
-            fromDisk = extDir != null
-                ? PhpExtensionManager.GetAvailableExtensions(Path.GetDirectoryName(extDir)!)
-                    .ToHashSet(StringComparer.OrdinalIgnoreCase)
-                : new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        }
-        catch (Exception ex)
-        {
-            lblExtInfo.Text = $"Cannot read ext/ folder: {ex.Message}";
-            // Vẫn hiển thị các extension đang enable từ config
-            clbExtensions.BeginUpdate();
-            foreach (var ext in enabled.OrderBy(e => e))
-                clbExtensions.Items.Add(ext, true);
-            clbExtensions.EndUpdate();
-            LayoutExtensionColumns();
-            return;
-        }
-
-        // Union: DLLs từ disk + extension đang được enable (để không mất ext user đã lưu)
-        var allExts = fromDisk
-            .Union(enabled, StringComparer.OrdinalIgnoreCase)
-            .OrderBy(n => n, StringComparer.OrdinalIgnoreCase)
-            .ToList();
-
-        clbExtensions.BeginUpdate();
-        foreach (var ext in allExts)
-            clbExtensions.Items.Add(ext, enabled.Contains(ext));
-        clbExtensions.EndUpdate();
-
-        LayoutExtensionColumns();
-        UpdateExtInfo();
-    }
-
-    /// <summary>
-    /// Sizes the extension columns to the widest name at the current font size. The designer
-    /// carried a fixed 130 px, which wasted width at 100 % and clipped names once the display
-    /// scaled — <see cref="CheckedListBox.ColumnWidth"/> is raw pixels and does not scale.
-    /// </summary>
-    private void LayoutExtensionColumns()
-    {
-        if (clbExtensions.Items.Count == 0) return;
-
-        int widest = 0;
-        foreach (string name in clbExtensions.Items)
-            widest = Math.Max(widest, TextRenderer.MeasureText(name, clbExtensions.Font).Width);
-
-        // The check box and the gap before the label both track the item height.
-        clbExtensions.ColumnWidth = widest + clbExtensions.ItemHeight + 12;
-    }
-
-    private void UpdateExtInfo()
-    {
-        int total = clbExtensions.Items.Count;
-        int checked_ = clbExtensions.CheckedItems.Count;
-        lblExtInfo.Text = total > 0
-            ? $"Found: {total} extensions   Enabled: {checked_}"
-            : "No PHP version selected or ext/ folder not found.";
-    }
-
-    private List<string> GetCheckedExtensions() =>
-        clbExtensions.CheckedItems.Cast<string>().ToList();
-
-    private void clbExtensions_ItemCheck(object? sender, ItemCheckEventArgs e)
-    {
-        // ItemCheck fires before the collection updates. During constructor population the
-        // window handle does not exist yet, and PopulateExtensions updates the label itself.
-        if (IsHandleCreated && !IsDisposed)
-            BeginInvoke(UpdateExtInfo);
-    }
-
-    private void btnCheckAll_Click(object sender, EventArgs e)
-    {
-        for (int i = 0; i < clbExtensions.Items.Count; i++)
-            clbExtensions.SetItemChecked(i, true);
-        UpdateExtInfo();
-    }
-
-    private void btnRecommendedExtensions_Click(object sender, EventArgs e)
-    {
-        var recommended = PhpExtensionManager.RecommendedExtensions
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
-        for (int i = 0; i < clbExtensions.Items.Count; i++)
-        {
-            var extension = clbExtensions.Items[i]?.ToString() ?? "";
-            clbExtensions.SetItemChecked(i, recommended.Contains(extension));
-        }
-        UpdateExtInfo();
-    }
-
-    private void btnUncheckAll_Click(object sender, EventArgs e)
-    {
-        for (int i = 0; i < clbExtensions.Items.Count; i++)
-            clbExtensions.SetItemChecked(i, false);
-        UpdateExtInfo();
+        if (_openPhpConfig is null) return;
+        _openPhpConfig(this);
+        // memory_limit may have changed there; both hints are measured against it.
+        UpdateWorkersHint();
+        UpdateRiskHighlights();
     }
 
     private void UpdateOpcacheVisibility()
@@ -335,26 +292,19 @@ public partial class SettingsForm : Form
         nudWorkers.Value = _config.Php.Workers;
         nudMaxRequests.Value = _config.Php.MaxRequests;
         nudMemoryRestart.Value = _config.Php.MemoryRestartThreshold;
-        nudMemoryLimit.Value = _config.Php.MemoryLimit;
-        nudMaxExecTime.Value = _config.Php.MaxExecutionTime;
+        chkMemoryRestartAuto.Checked = _config.Php.MemoryRestartAuto;
         chkOpcache.Checked = _config.Php.EnableOpcache;
         nudOpcacheMemory.Value = _config.Php.OpcacheMemory;
-        SelectTimezone(_config.Php.Timezone);
         chkUseBundledCaCertificate.Checked = _config.Php.UseBundledCaCertificate;
 
         // General
         chkMinimizeToTray.Checked = _config.MinimizeToTray;
         chkAutoStart.Checked = _config.AutoStart;
         chkStartWithWindows.Checked = _config.StartWithWindows;
-
-        // PHP Extensions — scan ext/ folder và tick những ext đang được enable
-        PopulateExtensions();
     }
 
     private void SaveSettings()
     {
-        string newTimezone = cboTimezone.SelectedItem?.ToString() ?? "Asia/Ho_Chi_Minh";
-
         // Detect what actually changed before writing (config still holds old values here)
         NeedsApacheRestart =
             _config.ServerMode != (ServerMode)cboServerMode.SelectedItem! ||
@@ -369,22 +319,15 @@ public partial class SettingsForm : Form
             !string.Equals(_config.Apache.SslCertFile, txtSslCertFile.Text.Trim(), StringComparison.Ordinal) ||
             !string.Equals(_config.Apache.SslKeyFile, txtSslKeyFile.Text.Trim(), StringComparison.Ordinal);
 
-        var newExtensions = GetCheckedExtensions();
-        var oldExtSet = _config.Php.EnabledExtensions.ToHashSet(StringComparer.OrdinalIgnoreCase);
-        var newExtSet = newExtensions.ToHashSet(StringComparer.OrdinalIgnoreCase);
-        bool extsChanged = !oldExtSet.SetEquals(newExtSet);
-
+        // memory_limit, max_execution_time, timezone and extensions are not here: PhpConfigForm
+        // owns them and applies its own changes, so this dialog neither edits nor restarts for them.
         NeedsPhpRestart =
             _config.Php.FcgiPort != (int)nudFcgiPort.Value ||
             _config.Php.Workers != (int)nudWorkers.Value ||
             _config.Php.MaxRequests != (int)nudMaxRequests.Value ||
-            _config.Php.MemoryLimit != (int)nudMemoryLimit.Value ||
-            _config.Php.MaxExecutionTime != (int)nudMaxExecTime.Value ||
             _config.Php.EnableOpcache != chkOpcache.Checked ||
             _config.Php.OpcacheMemory != (int)nudOpcacheMemory.Value ||
-            !string.Equals(_config.Php.Timezone, newTimezone, StringComparison.Ordinal) ||
-            _config.Php.UseBundledCaCertificate != chkUseBundledCaCertificate.Checked ||
-            extsChanged;
+            _config.Php.UseBundledCaCertificate != chkUseBundledCaCertificate.Checked;
 
         bool generalChanged =
             _config.MinimizeToTray != chkMinimizeToTray.Checked ||
@@ -394,7 +337,8 @@ public partial class SettingsForm : Form
         // Deliberately not part of NeedsPhpRestart: ServerManager re-reads the threshold through
         // ApplyPhpMemorySettings, so changing it must not bounce a healthy pool.
         bool memoryWatchdogChanged =
-            _config.Php.MemoryRestartThreshold != (int)nudMemoryRestart.Value;
+            _config.Php.MemoryRestartThreshold != (int)nudMemoryRestart.Value ||
+            _config.Php.MemoryRestartAuto != chkMemoryRestartAuto.Checked;
 
         ConfigChanged = NeedsApacheRestart || NeedsPhpRestart || generalChanged || memoryWatchdogChanged;
 
@@ -415,14 +359,11 @@ public partial class SettingsForm : Form
         _config.Php.FcgiPort = (int)nudFcgiPort.Value;
         _config.Php.Workers = (int)nudWorkers.Value;
         _config.Php.MaxRequests = (int)nudMaxRequests.Value;
+        _config.Php.MemoryRestartAuto = chkMemoryRestartAuto.Checked;
         _config.Php.MemoryRestartThreshold = (int)nudMemoryRestart.Value;
-        _config.Php.MemoryLimit = (int)nudMemoryLimit.Value;
-        _config.Php.MaxExecutionTime = (int)nudMaxExecTime.Value;
         _config.Php.EnableOpcache = chkOpcache.Checked;
         _config.Php.OpcacheMemory = (int)nudOpcacheMemory.Value;
-        _config.Php.Timezone = newTimezone;
         _config.Php.UseBundledCaCertificate = chkUseBundledCaCertificate.Checked;
-        _config.Php.EnabledExtensions = newExtensions;
 
         _config.MinimizeToTray = chkMinimizeToTray.Checked;
         _config.AutoStart = chkAutoStart.Checked;
@@ -433,28 +374,26 @@ public partial class SettingsForm : Form
     {
         bool isProd = (ServerMode)cboServerMode.SelectedItem! == ServerMode.Production;
 
-        // Worker count is capped, not scaled by core count: each php-cgi worker is a process
-        // costing ~35 MB working set, and a load ramp on a 12-core box showed 24 workers idling at
-        // 891 MB while serving FEWER req/s at 16-way concurrency than 8 workers at 322 MB. Keep
-        // these in step with PhpSettings.Workers' own default.
+        // Worker count comes from the same advice shown beside the field, so the button and the
+        // hint can never disagree: capped by what the CPU can use, then cut to what RAM allows.
         // MaxRequests stays 0 in both modes so FastCGI connection pooling can be emitted — see
         // ApacheConfigWriter.FcgiReuse and doc/PERFORMANCE_EVALUATION.md.
         if (isProd)
         {
-            nudWorkers.Value = Math.Clamp(Environment.ProcessorCount, 8, 16);
-            nudMaxRequests.Value = 0;
             nudOpcacheMemory.Value = 256;
             nudKeepAlive.Value = 5;
             nudMaxClients.Value = Math.Max(500, Math.Min(2000, Environment.ProcessorCount * 50));
         }
         else
         {
-            nudWorkers.Value = Math.Clamp(Environment.ProcessorCount, 4, 8);
-            nudMaxRequests.Value = 0;
             nudOpcacheMemory.Value = 128;
             nudKeepAlive.Value = 15;
             nudMaxClients.Value = 256;
         }
+
+        nudMaxRequests.Value = 0;
+        // After the memory limit, since the advice is measured against it.
+        nudWorkers.Value = ServerManager.SuggestWorkers(_config.Php.MemoryLimit).Workers;
 
         // Native buttons ignore BackColor under visual styles, so confirm with the caption only.
         var origText = btnApplyModeDefaults.Text;

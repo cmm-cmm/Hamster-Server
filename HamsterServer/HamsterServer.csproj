@@ -19,7 +19,7 @@
     <!-- Product metadata -->
     <Product>Hamster Server</Product>
     <AssemblyTitle>Hamster Server — Local Apache + PHP Dev Server</AssemblyTitle>
-    <Version>1.2.0</Version>
+    <Version>1.4.0</Version>
     <Company>Konex Forge</Company>
     <Copyright>Copyright © Konex Forge</Copyright>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
@@ -61,6 +61,11 @@
 
   <ItemGroup>
     <Content Include="server.ico" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- UiTheme and SvgPath are internal; the icon tests render every glyph through them. -->
+    <InternalsVisibleTo Include="HamsterServer.Tests" />
   </ItemGroup>
 
   <ItemGroup>

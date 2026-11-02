@@ -8,9 +8,14 @@ namespace HamsterServer.Tests;
 /// <summary>
 /// Drives real load through Apache and php-cgi to prove the connection-reuse policy.
 /// <para>
-/// Marked <c>Soak</c> and excluded from the default run: each case starts the real server stack,
-/// binds a TCP port and takes tens of seconds. Run explicitly with
-/// <c>dotnet test --filter "TestCategory=Soak"</c>.
+/// Marked <c>Soak</c> and skipped unless <c>HAMSTER_SOAK=1</c>: each case starts the real server
+/// stack, binds a TCP port and takes tens of seconds. Run explicitly with
+/// <c>dotnet test HamsterServer.slnx --filter "TestCategory=Soak" -e HAMSTER_SOAK=1</c>.
+/// </para>
+/// <para>
+/// A <c>.runsettings</c> <c>TestCaseFilter</c> cannot do this job: VSTest ANDs it with the command
+/// line <c>--filter</c>, so <c>TestCategory!=Soak</c> there would make <c>--filter TestCategory=Soak</c>
+/// match nothing. The opt-in has to live in the tests themselves.
 /// </para>
 /// <para>
 /// WARNING: <see cref="ServerManager.Dispose"/> kills every httpd/php-cgi whose image path belongs
@@ -24,6 +29,23 @@ public sealed class FastCgiSoakTests
     private const int Concurrency = 32;
 
     public TestContext TestContext { get; set; } = null!;
+
+    internal const string OptInVariable = "HAMSTER_SOAK";
+
+    // A bare `dotnet test` used to run these too, and their cleanup kills every httpd/php-cgi of the
+    // Debug build — including an instance of the app the developer had open. Skipping is reported
+    // as such (Inconclusive → Skipped), so nothing passes silently.
+    [TestInitialize]
+    public void RequireExplicitOptIn()
+    {
+        if (Environment.GetEnvironmentVariable(OptInVariable) != "1")
+        {
+            Assert.Inconclusive(
+                "Soak test skipped: it starts the real stack on ports 18080-18083 and kills every " +
+                "httpd/php-cgi of this build, including a running app. Opt in with: " +
+                $"dotnet test HamsterServer.slnx --filter \"TestCategory=Soak\" -e {OptInVariable}=1");
+        }
+    }
 
     // The whole point of the regression: a worker that exits mid-pool used to hand Apache a socket
     // it was still reusing, which surfaced as rare 503s. Pooling is on here (MaxRequests = 0).
@@ -148,6 +170,9 @@ public sealed class FastCgiSoakTests
         config.Php.Workers = 4;
         config.Php.MaxRequests = 0;
         // Below what four workers use at rest, so the very first sweep must trip.
+        // Auto is on by default and would derive 512 MB for four workers, well above what
+        // the pool weighs — pin it manually so the sweep actually has something to cross.
+        config.Php.MemoryRestartAuto = false;
         config.Php.MemoryRestartThreshold = 128;
 
         var server = new ServerManager(rootDir, config);
@@ -217,6 +242,9 @@ public sealed class FastCgiSoakTests
         config.Php.FcgiPort = 39104;
         config.Php.Workers = 4;
         config.Php.MaxRequests = 0;
+        // Auto is on by default and would derive 512 MB for four workers, well above what
+        // the pool weighs — pin it manually so the sweep actually has something to cross.
+        config.Php.MemoryRestartAuto = false;
         config.Php.MemoryRestartThreshold = 128;
 
         var server = new ServerManager(rootDir, config);

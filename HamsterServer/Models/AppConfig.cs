@@ -21,6 +21,35 @@ public enum FrameworkPreset
     Magento = 11
 }
 
+/// <summary>
+/// The <c>error_reporting</c> level written to php.ini. <see cref="Auto"/> follows
+/// <see cref="AppConfig.ServerMode"/> (Development → E_ALL, Production → E_ALL without deprecations).
+/// Append new values; never reorder, the JSON converter accepts numeric values too.
+/// </summary>
+[JsonConverter(typeof(JsonStringEnumConverter))]
+public enum PhpErrorReporting
+{
+    Auto = 0,
+    All = 1,
+    NoDeprecated = 2,
+    NoNotices = 3
+}
+
+/// <summary>
+/// What Hamster Server does when php.net publishes a newer patch of the PHP branch in use.
+/// Append new values; never reorder, the JSON converter accepts numeric values too.
+/// </summary>
+[JsonConverter(typeof(JsonStringEnumConverter))]
+public enum PhpUpdateMode
+{
+    /// <summary>Install the patch side-by-side, carry the extensions over, switch once PHP is idle.</summary>
+    Auto = 0,
+    /// <summary>Only report it (status bar, tray, PHP Version Manager).</summary>
+    Notify = 1,
+    /// <summary>Never contact php.net on its own.</summary>
+    Off = 2
+}
+
 public class AppConfig
 {
     [JsonPropertyName("serverMode")]
@@ -116,8 +145,18 @@ public class PhpSettings
     public int MaxRequests { get; set; } = 0;
 
     /// <summary>
+    /// Tự tính ngưỡng restart theo số worker thay vì dùng con số cố định. Bật mặc định vì một
+    /// ngưỡng cố định không theo kịp khi người dùng đổi Workers: 1024 MB là gấp 6 lần mức nền của
+    /// 4 worker nhưng chỉ gấp 2 lần của 12 worker, và ở mức gấp 2 thì pool bị recycle liên tục.
+    /// Xem <c>ServerManager.EffectiveMemoryThresholdMb</c>.
+    /// </summary>
+    [JsonPropertyName("memoryRestartAuto")]
+    public bool MemoryRestartAuto { get; set; } = true;
+
+    /// <summary>
     /// Tổng working set (MB) của cả pool php-cgi mà khi vượt qua, Hamster Server sẽ khởi động lại
     /// pool — nhưng chỉ vào lúc pool đang rảnh, không có request nào đang chạy. <c>0</c> = tắt.
+    /// Bị bỏ qua khi <see cref="MemoryRestartAuto"/> đang bật.
     /// <para>
     /// Đây là đối trọng của <see cref="MaxRequests"/> = 0: khi worker không bao giờ tự recycle thì
     /// không còn cơ chế nào giải phóng bộ nhớ tích lũy, nên việc dọn dẹp chuyển sang đo bộ nhớ thật
@@ -133,6 +172,20 @@ public class PhpSettings
     [JsonPropertyName("maxExecutionTime")]
     public int MaxExecutionTime { get; set; } = 300;
 
+    /// <summary><c>upload_max_filesize</c> in MB.</summary>
+    [JsonPropertyName("uploadMaxFilesize")]
+    public int UploadMaxFilesize { get; set; } = 128;
+
+    /// <summary><c>post_max_size</c> in MB.</summary>
+    [JsonPropertyName("postMaxSize")]
+    public int PostMaxSize { get; set; } = 128;
+
+    [JsonPropertyName("shortOpenTag")]
+    public bool ShortOpenTag { get; set; } = false;
+
+    [JsonPropertyName("errorReporting")]
+    public PhpErrorReporting ErrorReporting { get; set; } = PhpErrorReporting.Auto;
+
     [JsonPropertyName("enableOpcache")]
     public bool EnableOpcache { get; set; } = true;
 
@@ -144,6 +197,13 @@ public class PhpSettings
 
     [JsonPropertyName("useBundledCaCertificate")]
     public bool UseBundledCaCertificate { get; set; } = true;
+
+    /// <summary>
+    /// Patch updates within the current major.minor branch only — moving to another branch changes
+    /// the extension ABI and stays a manual choice. See <c>PhpUpdateService</c>.
+    /// </summary>
+    [JsonPropertyName("updateMode")]
+    public PhpUpdateMode UpdateMode { get; set; } = PhpUpdateMode.Auto;
 
     /// <summary>
     /// Danh sách extension được enable trong php.ini.
