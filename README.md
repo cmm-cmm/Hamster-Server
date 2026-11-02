@@ -5,7 +5,7 @@ several PHP runtimes and a native WinForms control panel. It runs PHP applicatio
 portable folder: no installer, no hand-edited `httpd.conf` or `php.ini`, and PHP kept up to
 date on its own.
 
-The current development source identifies as **Hamster Server 1.3.0** and targets
+The current development source identifies as **Hamster Server 1.4.0** and targets
 **.NET 10 for Windows**.
 
 Hamster Server is a product of [Konex Forge](https://konexforge.com/).
