@@ -44,6 +44,10 @@ public partial class PortsForm : Form
     private bool _scanned;
     private bool _scanning;
     private string? _scanError;
+    /// <summary>Where the listener snapshot comes from; tests and README screenshots substitute sample data.</summary>
+    [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
+    internal Func<IReadOnlyList<ListeningPort>> Scanner { get; set; } = SystemPortScanner.GetTcpListeners;
+
     private int _sortColumn;
     private bool _sortDescending;
 
@@ -139,7 +143,7 @@ public partial class PortsForm : Form
         lblSysCount.Text = "Scanning…";
         try
         {
-            var listeners = await Task.Run(SystemPortScanner.GetTcpListeners);
+            var listeners = await Task.Run(Scanner);
             _usage = SystemPortScanner.Classify(listeners, _config, _rootDir);
             _scanned = true;
             _scanError = null;
