@@ -21,6 +21,20 @@ public enum FrameworkPreset
     Magento = 11
 }
 
+/// <summary>
+/// The <c>error_reporting</c> level written to php.ini. <see cref="Auto"/> follows
+/// <see cref="AppConfig.ServerMode"/> (Development → E_ALL, Production → E_ALL without deprecations).
+/// Append new values; never reorder, the JSON converter accepts numeric values too.
+/// </summary>
+[JsonConverter(typeof(JsonStringEnumConverter))]
+public enum PhpErrorReporting
+{
+    Auto = 0,
+    All = 1,
+    NoDeprecated = 2,
+    NoNotices = 3
+}
+
 public class AppConfig
 {
     [JsonPropertyName("serverMode")]
@@ -142,6 +156,20 @@ public class PhpSettings
 
     [JsonPropertyName("maxExecutionTime")]
     public int MaxExecutionTime { get; set; } = 300;
+
+    /// <summary><c>upload_max_filesize</c> in MB.</summary>
+    [JsonPropertyName("uploadMaxFilesize")]
+    public int UploadMaxFilesize { get; set; } = 128;
+
+    /// <summary><c>post_max_size</c> in MB.</summary>
+    [JsonPropertyName("postMaxSize")]
+    public int PostMaxSize { get; set; } = 128;
+
+    [JsonPropertyName("shortOpenTag")]
+    public bool ShortOpenTag { get; set; } = false;
+
+    [JsonPropertyName("errorReporting")]
+    public PhpErrorReporting ErrorReporting { get; set; } = PhpErrorReporting.Auto;
 
     [JsonPropertyName("enableOpcache")]
     public bool EnableOpcache { get; set; } = true;

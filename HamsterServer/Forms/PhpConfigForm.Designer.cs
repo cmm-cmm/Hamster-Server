@@ -38,7 +38,7 @@ partial class PhpConfigForm
         lblShortTag = new Label();
         chkShortOpenTag = new CheckBox();
         lblTimezone = new Label();
-        txtTimezone = new TextBox();
+        cboTimezone = new ComboBox();
         tabExtensions = new TabPage();
         clbExtensions = new CheckedListBox();
         tsExtensions = new ToolStrip();
@@ -291,7 +291,7 @@ partial class PhpConfigForm
         tblErrors.Controls.Add(lblShortTag, 0, 2);
         tblErrors.Controls.Add(chkShortOpenTag, 1, 2);
         tblErrors.Controls.Add(lblTimezone, 0, 3);
-        tblErrors.Controls.Add(txtTimezone, 1, 3);
+        tblErrors.Controls.Add(cboTimezone, 1, 3);
         tblErrors.Dock = DockStyle.Fill;
         tblErrors.Location = new Point(8, 20);
         tblErrors.Name = "tblErrors";
@@ -320,7 +320,7 @@ partial class PhpConfigForm
         cmbErrorReporting.DropDownStyle = ComboBoxStyle.DropDownList;
         cmbErrorReporting.FormattingEnabled = true;
         cmbErrorReporting.Items.AddRange(new object[] {
-            "E_ALL (all errors)", "E_ALL except deprecated", "E_ALL except notices", "Custom" });
+            "Follow server mode", "E_ALL (all errors)", "E_ALL except deprecated", "E_ALL except notices" });
         cmbErrorReporting.Location = new Point(193, 4);
         cmbErrorReporting.Name = "cmbErrorReporting";
         cmbErrorReporting.Size = new Size(240, 23);
@@ -345,7 +345,7 @@ partial class PhpConfigForm
         chkDisplayErrors.Name = "chkDisplayErrors";
         chkDisplayErrors.Size = new Size(420, 19);
         chkDisplayErrors.TabIndex = 3;
-        chkDisplayErrors.Text = "Print errors to the response (breaks FastCGI — keep off)";
+        chkDisplayErrors.Text = "Always off — output before headers breaks FastCGI";
         chkDisplayErrors.UseVisualStyleBackColor = true;
         //
         // lblShortTag
@@ -381,13 +381,18 @@ partial class PhpConfigForm
         lblTimezone.Text = "Timezone:";
         lblTimezone.TextAlign = ContentAlignment.MiddleLeft;
         //
-        // txtTimezone
+        // cboTimezone
         //
-        txtTimezone.Anchor = AnchorStyles.Left;
-        txtTimezone.Location = new Point(193, 94);
-        txtTimezone.Name = "txtTimezone";
-        txtTimezone.Size = new Size(240, 23);
-        txtTimezone.TabIndex = 7;
+        // Editable on purpose: the list is what Windows knows, and PHP accepts zones it does not.
+        cboTimezone.Anchor = AnchorStyles.Left;
+        cboTimezone.AutoCompleteMode = AutoCompleteMode.SuggestAppend;
+        cboTimezone.AutoCompleteSource = AutoCompleteSource.ListItems;
+        cboTimezone.DropDownStyle = ComboBoxStyle.DropDown;
+        cboTimezone.FormattingEnabled = true;
+        cboTimezone.Location = new Point(193, 94);
+        cboTimezone.Name = "cboTimezone";
+        cboTimezone.Size = new Size(300, 23);
+        cboTimezone.TabIndex = 7;
 
         // ─── Extensions tab ──────────────────────────────────────────────────
         //
@@ -496,7 +501,7 @@ partial class PhpConfigForm
         lblIniHint.ForeColor = SystemColors.GrayText;
         lblIniHint.Name = "lblIniHint";
         lblIniHint.Size = new Size(420, 22);
-        lblIniHint.Text = "Read-only preview. Saving rewrites only the settings shown on the other tabs.";
+        lblIniHint.Text = "Read-only preview. Saving regenerates php.ini for every runtime from these settings.";
         //
         // panPhpFooter
         //
@@ -620,7 +625,7 @@ partial class PhpConfigForm
     private Label lblShortTag;
     private CheckBox chkShortOpenTag;
     private Label lblTimezone;
-    private TextBox txtTimezone;
+    private ComboBox cboTimezone;
     private TabPage tabExtensions;
     private ToolStrip tsExtensions;
     private ToolStripLabel tslExtFilter;

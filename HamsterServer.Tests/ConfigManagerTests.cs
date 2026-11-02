@@ -355,6 +355,40 @@ public sealed class ConfigManagerTests
     }
 
     [TestMethod]
+    public void Load_NormalizesPhpIniSettings()
+    {
+        using var root = new TestDirectory();
+        var configDir = Path.Combine(root.Path, "config");
+        Directory.CreateDirectory(configDir);
+        File.WriteAllText(Path.Combine(configDir, "hamster-server.json"),
+            """{"php":{"uploadMaxFilesize":0,"postMaxSize":999999,"errorReporting":42}}""");
+
+        var config = new ConfigManager(root.Path).Load();
+
+        Assert.AreEqual(128, config.Php.UploadMaxFilesize, "A non-positive size falls back to the old template value.");
+        Assert.AreEqual(4096, config.Php.PostMaxSize);
+        Assert.AreEqual(PhpErrorReporting.Auto, config.Php.ErrorReporting);
+    }
+
+    [TestMethod]
+    public void Load_ConfigurationWithoutPhpIniSettingsKeepsPreviousTemplateValues()
+    {
+        using var root = new TestDirectory();
+        var configDir = Path.Combine(root.Path, "config");
+        Directory.CreateDirectory(configDir);
+        File.WriteAllText(Path.Combine(configDir, "hamster-server.json"), """{"php":{}}""");
+
+        var config = new ConfigManager(root.Path).Load();
+
+        // Exactly what the php.ini template hard-coded before these became settings, so an
+        // upgrade regenerates an identical file.
+        Assert.AreEqual(128, config.Php.UploadMaxFilesize);
+        Assert.AreEqual(128, config.Php.PostMaxSize);
+        Assert.IsFalse(config.Php.ShortOpenTag);
+        Assert.AreEqual(PhpErrorReporting.Auto, config.Php.ErrorReporting);
+    }
+
+    [TestMethod]
     public void NewConfiguration_DefaultsToNeverRecyclingWorkers()
     {
         using var root = new TestDirectory();

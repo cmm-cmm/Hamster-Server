@@ -57,6 +57,7 @@ public partial class PhpVersionManagerForm : Form
         btnDelete.Image = UiTheme.CreateGlyph(UiTheme.Glyph.Delete, UiTheme.StatusError);
         foreach (var button in new[] { btnRefresh, btnInstall, btnUpdate, btnDelete })
             button.DisplayStyle = ToolStripItemDisplayStyle.ImageAndText;
+        UiTheme.ApplyIconScaling(toolStrip);
     }
 
     private async Task RefreshCatalogAsync()

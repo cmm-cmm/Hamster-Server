@@ -40,7 +40,7 @@ public partial class VHostForm : Form
     /// </summary>
     private void InitIcons()
     {
-        _vhostIcons = new ImageList(components) { ImageSize = new Size(16, 16), ColorDepth = ColorDepth.Depth32Bit };
+        _vhostIcons = new ImageList(components) { ImageSize = UiTheme.IconBox, ColorDepth = ColorDepth.Depth32Bit };
         _vhostIcons.Images.Add(UiTheme.CreateGlyph(UiTheme.Glyph.World, UiTheme.StatusRunning));
         _vhostIcons.Images.Add(UiTheme.CreateGlyph(UiTheme.Glyph.World, UiTheme.StatusStopped));
         _vhostIcons.Images.Add(UiTheme.CreateGlyph(UiTheme.Glyph.Link, UiTheme.AccentHttp));
@@ -51,6 +51,11 @@ public partial class VHostForm : Form
         btnDelete.Image = UiTheme.CreateGlyph(UiTheme.Glyph.Delete, UiTheme.StatusError);
         foreach (var b in new[] { btnAdd, btnEdit, btnDelete })
             b.DisplayStyle = ToolStripItemDisplayStyle.ImageAndText;
+
+        // The right-click menu repeats the toolbar's Edit / Delete, so it carries the same glyphs.
+        ctxEdit.Image = UiTheme.CreateGlyph(UiTheme.Glyph.Edit, UiTheme.AccentAction);
+        ctxDelete.Image = UiTheme.CreateGlyph(UiTheme.Glyph.Delete, UiTheme.StatusError);
+        UiTheme.ApplyIconScaling(toolStrip, ctxVHosts);
     }
 
     // ─── ListView painting ────────────────────────────────────────────────────

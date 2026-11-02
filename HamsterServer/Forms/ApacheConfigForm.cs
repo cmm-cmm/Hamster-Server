@@ -51,6 +51,20 @@ public partial class ApacheConfigForm : Form
 
     // ─── Load ─────────────────────────────────────────────────────────────────
 
+    // Both files are rewritten by every Apache start, which can be running on the thread pool while
+    // this dialog is open. An unguarded read that lost that race threw out of the constructor —
+    // the right-click "Configure…" then surfaced as the generic crash box instead of a dialog.
+    private static string? TryReadAllText(string path, out string? error)
+    {
+        error = null;
+        try { return File.ReadAllText(path); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            error = ex.Message;
+            return null;
+        }
+    }
+
     private void LoadHttpdConf()
     {
         if (!File.Exists(_httpdConfPath))
@@ -58,16 +72,30 @@ public partial class ApacheConfigForm : Form
             rtbHttpdConf.Text = "(httpd.conf has not been generated yet — start Apache first)";
             return;
         }
-        rtbHttpdConf.Text = File.ReadAllText(_httpdConfPath);
+        var text = TryReadAllText(_httpdConfPath, out var error);
+        if (text is null)
+        {
+            rtbHttpdConf.Text = $"(httpd.conf could not be read: {error} — click Reload)";
+            return;
+        }
+        rtbHttpdConf.Text = text;
         ApplySyntaxHighlight(rtbHttpdConf);
     }
 
     private void LoadVHostFiles()
     {
         lstVHostFiles.Items.Clear();
+        rtbVHostContent.Clear();
         if (!Directory.Exists(_vhostsDir)) return;
-        foreach (var f in Directory.GetFiles(_vhostsDir, "*.conf").OrderBy(f => f))
-            lstVHostFiles.Items.Add(Path.GetFileName(f));
+        try
+        {
+            foreach (var f in Directory.GetFiles(_vhostsDir, "*.conf").OrderBy(f => f, StringComparer.OrdinalIgnoreCase))
+                lstVHostFiles.Items.Add(Path.GetFileName(f));
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            rtbVHostContent.Text = $"(vhosts folder could not be read: {ex.Message})";
+        }
     }
 
     // ─── Syntax highlight ─────────────────────────────────────────────────────
@@ -154,23 +182,93 @@ public partial class ApacheConfigForm : Form
         var name = lstVHostFiles.SelectedItem?.ToString();
         if (string.IsNullOrWhiteSpace(name)) return;
         var path = Path.Combine(_vhostsDir, name);
-        if (!File.Exists(path)) return;
-        rtbVHostContent.Text = File.ReadAllText(path);
+        if (!File.Exists(path))
+        {
+            // Stale vhost files are deleted on every Apache start; refresh rather than show nothing.
+            LoadVHostFiles();
+            return;
+        }
+        var text = TryReadAllText(path, out var error);
+        if (text is null)
+        {
+            rtbVHostContent.Text = $"({name} could not be read: {error})";
+            return;
+        }
+        rtbVHostContent.Text = text;
         ApplySyntaxHighlight(rtbVHostContent);
     }
 
     // ─── Toolbar buttons ──────────────────────────────────────────────────────
 
-    private void btnReloadConf_Click(object sender, EventArgs e) => LoadHttpdConf();
+    private void btnReloadConf_Click(object sender, EventArgs e)
+    {
+        LoadHttpdConf();
+        LoadVHostFiles();
+    }
 
     // ─── Save / Cancel ────────────────────────────────────────────────────────
 
-    private void btnApacheSave_Click(object sender, EventArgs e)
+    private bool _saving;
+
+    private async void btnApacheSave_Click(object sender, EventArgs e)
     {
-        _config.Apache.CustomDirectives = txtCustomDirectives.Text;
+        if (_saving) return;
+
+        // Normalise line endings and trailing blanks so re-saving the same text is not a "change"
+        // that bounces Apache for nothing — the old Save restarted it on every click.
+        var directives = txtCustomDirectives.Text.Replace("\r\n", "\n").TrimEnd().Replace("\n", Environment.NewLine);
+        var current = (_config.Apache.CustomDirectives ?? "").Replace("\r\n", "\n").TrimEnd().Replace("\n", Environment.NewLine);
+        if (string.Equals(directives, current, StringComparison.Ordinal))
+        {
+            DialogResult = DialogResult.Cancel;
+            Close();
+            return;
+        }
+
+        if (directives.Length > 0)
+        {
+            _saving = true;
+            btnApacheSave.Enabled = false;
+            UseWaitCursor = true;
+            (bool Ok, string Output) test;
+            try
+            {
+                test = await _server.TestApacheConfigAsync(directives);
+            }
+            finally
+            {
+                _saving = false;
+                if (!IsDisposed)
+                {
+                    btnApacheSave.Enabled = true;
+                    UseWaitCursor = false;
+                }
+            }
+            if (IsDisposed) return;
+
+            if (!test.Ok)
+            {
+                MessageBox.Show(this,
+                    "Apache rejected the custom directives, so nothing was saved and Apache was left running as it was.\n\n" +
+                    test.Output,
+                    "Hamster Server — Invalid Apache directives", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                txtCustomDirectives.Focus();
+                return;
+            }
+        }
+
+        _config.Apache.CustomDirectives = directives;
         ConfigChanged = true;
         DialogResult = DialogResult.OK;
         Close();
+    }
+
+    protected override void OnFormClosing(FormClosingEventArgs e)
+    {
+        // The config test is still running; closing now would let its continuation touch a
+        // disposed form.
+        if (_saving) { e.Cancel = true; return; }
+        base.OnFormClosing(e);
     }
 
     private void btnApacheCancel_Click(object sender, EventArgs e) => Close();
