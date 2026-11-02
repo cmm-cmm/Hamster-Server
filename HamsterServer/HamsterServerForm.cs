@@ -1063,7 +1063,7 @@ public partial class HamsterServerForm : Form
 
     private async void btnPorts_Click(object sender, EventArgs e)
     {
-        using var frm = new PortsForm(_configMgr.Config);
+        using var frm = new PortsForm(_configMgr.Config, _rootDir);
         frm.ShowDialog(this);
         if (!frm.ConfigChanged) return;
 

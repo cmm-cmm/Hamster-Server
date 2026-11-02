@@ -19,6 +19,17 @@ partial class VHostForm
         btnEdit = new ToolStripButton();
         tsSep1 = new ToolStripSeparator();
         btnDelete = new ToolStripButton();
+        tsSep2 = new ToolStripSeparator();
+        btnToggle = new ToolStripButton();
+        tsSep3 = new ToolStripSeparator();
+        btnBrowse = new ToolStripButton();
+        btnOpenFolder = new ToolStripButton();
+        lblIntro = new Label();
+        lblSummary = new Label();
+        ctxBrowse = new ToolStripMenuItem();
+        ctxOpenFolder = new ToolStripMenuItem();
+        ctxSep1 = new ToolStripSeparator();
+        ctxToggle = new ToolStripMenuItem();
         lvVHosts = new ListView();
         colServerName = new ColumnHeader();
         colAlias = new ColumnHeader();
@@ -43,7 +54,7 @@ partial class VHostForm
         // toolStrip
         //
         toolStrip.GripStyle = ToolStripGripStyle.Hidden;
-        toolStrip.Items.AddRange(new ToolStripItem[] { btnAdd, btnEdit, tsSep1, btnDelete });
+        toolStrip.Items.AddRange(new ToolStripItem[] { btnAdd, btnEdit, tsSep1, btnDelete, tsSep2, btnToggle, tsSep3, btnBrowse, btnOpenFolder });
         toolStrip.Location = new Point(0, 0);
         toolStrip.Name = "toolStrip";
         toolStrip.Size = new Size(784, 25);
@@ -80,6 +91,91 @@ partial class VHostForm
         btnDelete.Text = "Delete";
         btnDelete.ToolTipText = "Delete the selected virtual host";
         btnDelete.Click += btnDelete_Click;
+        //
+        // tsSep2
+        //
+        tsSep2.Name = "tsSep2";
+        tsSep2.Size = new Size(6, 25);
+        //
+        // btnToggle
+        //
+        btnToggle.Name = "btnToggle";
+        btnToggle.Size = new Size(70, 22);
+        btnToggle.Text = "Disable";
+        btnToggle.ToolTipText = "Switch the selected virtual host on or off without deleting it";
+        btnToggle.Click += btnToggle_Click;
+        //
+        // tsSep3
+        //
+        tsSep3.Name = "tsSep3";
+        tsSep3.Size = new Size(6, 25);
+        //
+        // btnBrowse
+        //
+        btnBrowse.Name = "btnBrowse";
+        btnBrowse.Size = new Size(110, 22);
+        btnBrowse.Text = "Open in browser";
+        btnBrowse.ToolTipText = "Open the selected site in the default browser";
+        btnBrowse.Click += btnBrowse_Click;
+        //
+        // btnOpenFolder
+        //
+        btnOpenFolder.Name = "btnOpenFolder";
+        btnOpenFolder.Size = new Size(110, 22);
+        btnOpenFolder.Text = "Open folder";
+        btnOpenFolder.ToolTipText = "Open the selected site's project folder in Explorer";
+        btnOpenFolder.Click += btnOpenFolder_Click;
+        //
+        // lblIntro
+        //
+        // What the user needs to know before the first site works: the name must point at this
+        // computer. Kept to one line so the list keeps its height.
+        //
+        lblIntro.Dock = DockStyle.Top;
+        lblIntro.ForeColor = SystemColors.GrayText;
+        lblIntro.Location = new Point(10, 25);
+        lblIntro.Name = "lblIntro";
+        lblIntro.Padding = new Padding(0, 6, 0, 6);
+        lblIntro.Size = new Size(764, 46);
+        lblIntro.TabIndex = 3;
+        lblIntro.Text = "Each virtual host serves one project under its own name. Names ending in .localhost work at once; " +
+            "other names (shop.test) need a line in the Windows hosts file.";
+        //
+        // lblSummary
+        //
+        lblSummary.Dock = DockStyle.Fill;
+        lblSummary.ForeColor = SystemColors.GrayText;
+        lblSummary.Location = new Point(0, 8);
+        lblSummary.Name = "lblSummary";
+        lblSummary.Size = new Size(664, 35);
+        lblSummary.TabIndex = 1;
+        lblSummary.TextAlign = ContentAlignment.MiddleLeft;
+        //
+        // ctxBrowse
+        //
+        ctxBrowse.Name = "ctxBrowse";
+        ctxBrowse.Size = new Size(180, 22);
+        ctxBrowse.Text = "Open in browser";
+        ctxBrowse.Click += btnBrowse_Click;
+        //
+        // ctxOpenFolder
+        //
+        ctxOpenFolder.Name = "ctxOpenFolder";
+        ctxOpenFolder.Size = new Size(180, 22);
+        ctxOpenFolder.Text = "Open folder";
+        ctxOpenFolder.Click += btnOpenFolder_Click;
+        //
+        // ctxSep1
+        //
+        ctxSep1.Name = "ctxSep1";
+        ctxSep1.Size = new Size(177, 6);
+        //
+        // ctxToggle
+        //
+        ctxToggle.Name = "ctxToggle";
+        ctxToggle.Size = new Size(180, 22);
+        ctxToggle.Text = "Disable";
+        ctxToggle.Click += btnToggle_Click;
         //
         // lvVHosts
         //
@@ -139,9 +235,9 @@ partial class VHostForm
         //
         // ctxVHosts
         //
-        ctxVHosts.Items.AddRange(new ToolStripItem[] { ctxEdit, ctxDelete });
+        ctxVHosts.Items.AddRange(new ToolStripItem[] { ctxBrowse, ctxOpenFolder, ctxSep1, ctxToggle, ctxEdit, ctxDelete });
         ctxVHosts.Name = "ctxVHosts";
-        ctxVHosts.Size = new Size(140, 48);
+        ctxVHosts.Size = new Size(181, 120);
         //
         // ctxEdit
         //
@@ -159,6 +255,7 @@ partial class VHostForm
         //
         // panFooter
         //
+        panFooter.Controls.Add(lblSummary);
         panFooter.Controls.Add(flpFooter);
         panFooter.Dock = DockStyle.Bottom;
         panFooter.Location = new Point(10, 456);
@@ -196,6 +293,7 @@ partial class VHostForm
         CancelButton = btnClose;
         ClientSize = new Size(784, 509);
         Controls.Add(lvVHosts);
+        Controls.Add(lblIntro);
         Controls.Add(panFooter);
         Controls.Add(toolStrip);
         MinimumSize = new Size(680, 400);
@@ -220,6 +318,17 @@ partial class VHostForm
     private ToolStripButton btnEdit;
     private ToolStripSeparator tsSep1;
     private ToolStripButton btnDelete;
+    private ToolStripSeparator tsSep2;
+    private ToolStripButton btnToggle;
+    private ToolStripSeparator tsSep3;
+    private ToolStripButton btnBrowse;
+    private ToolStripButton btnOpenFolder;
+    private Label lblIntro;
+    private Label lblSummary;
+    private ToolStripMenuItem ctxBrowse;
+    private ToolStripMenuItem ctxOpenFolder;
+    private ToolStripSeparator ctxSep1;
+    private ToolStripMenuItem ctxToggle;
     private ListView lvVHosts;
     private ColumnHeader colServerName;
     private ColumnHeader colAlias;
