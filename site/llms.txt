@@ -21,7 +21,7 @@ Key facts:
 
 ## Download
 
-- [Hamster Server 1.4.1 for Windows x64 (zip, 155 MB)](https://github.com/cmm-cmm/Hamster-Server/releases/download/v1.4.1/HamsterServer-1.4.1-win-x64.zip)
+- [Hamster Server 1.4.1 for Windows x64 (zip, 156 MB)](https://github.com/cmm-cmm/Hamster-Server/releases/download/v1.4.1/HamsterServer-1.4.1-win-x64.zip)
 - [All releases](https://github.com/cmm-cmm/Hamster-Server/releases)
 
 ## Source
