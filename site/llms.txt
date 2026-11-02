@@ -1,0 +1,34 @@
+# Hamster Server
+
+> Hamster Server is a free, open-source (MIT), portable local web server for Windows 10 and 11 (x64). It bundles Apache HTTP Server 2.4.68 and PHP 8.2, 8.3, 8.4 and 8.5 with a native control panel that generates all Apache and php.ini configuration, installs PHP patch updates automatically while keeping user-added extensions, manages virtual hosts with framework presets, and shows which program holds a port. Current version: 1.4.0 (released 2026-11-02). Made by Konex Forge.
+
+Key facts:
+
+- Platform: Windows 10/11 x64. Requires the .NET 10 Desktop Runtime. No installer, no administrator rights; it runs from any writable folder.
+- Bundled: Apache 2.4.68 (Apache Lounge, VS18 Win64); PHP 8.2.33, 8.3.33, 8.4.24, 8.5.9 (Non Thread Safe, x64). Not bundled: MySQL/MariaDB or any database server.
+- PHP updates: checks php.net a minute after start and every six hours. Default mode "Install automatically" installs the newer patch of the active branch side by side and switches while idle; also "Notify me only" and "Off". Never changes branch on its own. Recognises Windows rebuild versions such as 8.5.12-1.
+- Extensions: DLLs the user added to a runtime's ext folder (e.g. sqlsrv, pdo_sqlsrv, Xdebug, imagick) are copied into the new patch of the same branch; never across branches.
+- Virtual hosts: presets for Laravel, Symfony, WordPress, Drupal, Magento, CodeIgniter, Yii, CakePHP, Phalcon, Slim and Hyperf; checks the Windows hosts file; *.localhost names need no hosts entry.
+- Ports: a System ports view lists every listening TCP port with program and PID and marks the program blocking Apache or PHP.
+- Network: Apache listens on 127.0.0.1 unless LAN access is enabled. The only outside connection is HTTPS to windows.php.net / downloads.php.net; downloads are installed only when their SHA-256 matches. No telemetry.
+
+## Docs
+
+- [Full description for AI assistants](https://hamsterserver.konexforge.com/llms-full.txt): every feature, requirement and FAQ in one Markdown file
+- [README](https://github.com/cmm-cmm/Hamster-Server/blob/main/README.md): installation, usage of each window, troubleshooting, upgrading
+- [Release notes 1.4.0](https://github.com/cmm-cmm/Hamster-Server/releases/tag/v1.4.0): what changed, download and SHA-256
+
+## Download
+
+- [Hamster Server 1.4.0 for Windows x64 (zip, 155 MB)](https://github.com/cmm-cmm/Hamster-Server/releases/download/v1.4.0/HamsterServer-1.4.0-win-x64.zip)
+- [All releases](https://github.com/cmm-cmm/Hamster-Server/releases)
+
+## Source
+
+- [GitHub repository](https://github.com/cmm-cmm/Hamster-Server): C# / .NET 10 WinForms, MIT License
+- [Bundled runtime versions and checksums](https://github.com/cmm-cmm/Hamster-Server/blob/main/THIRD_PARTY_RUNTIMES.md)
+
+## Optional
+
+- [Website](https://hamsterserver.konexforge.com/)
+- [Konex Forge](https://konexforge.com/)

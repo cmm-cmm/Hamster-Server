@@ -375,3 +375,5 @@ HamsterServer/config/xserver.json.tmp
 HamsterServer/config/xserver.json.recovery.tmp
 HamsterServer/config/vhosts/*.conf
 HamsterServer/php/*/php.ini
+.wrangler/
+.cloudflare/
