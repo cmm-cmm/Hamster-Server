@@ -1,22 +1,25 @@
 /* Hamster Server website.
    Same family as the other Konex Forge product sites: dark first, light on request, Segoe UI.
-   Palette from the app icon — the hamster's orange and cream, the server's slate, its green and
-   blue LEDs — plus the app's own Apache (plum) and PHP (purple) colours where they mean that. */
+   Palette from the Concept 01 "Hamster Stack" brand kit (icon/docs/colors.json): orange #D9711A,
+   ink #17191E, ivory #F7F5F1 and the status green #22A06B, plus the app's own Apache (plum) and
+   PHP (purple) colours where they mean that. Dark mode shows the "reverse" logo, whose server
+   bars are ivory, because the ink bars of the colour logo vanish on an ink background. */
 
 :root {
-  --bg: #0e1116;
-  --bg-2: #12161d;
-  --surface: #171c24;
-  --surface-2: #1d2430;
-  --line: #2a3342;
-  --fg: #ecf0f5;
-  --fg-2: #a9b4c3;
-  --fg-3: #7a879a;
-  --orange: #f7953a;
-  --orange-2: #ec8429;
-  --cream: #fcebd5;
-  --slate: #46566f;
-  --green: #4ade80;
+  --bg: #111317;
+  --bg-2: #15171c;
+  --surface: #1b1e24;
+  --surface-2: #22262d;
+  --line: #30343c;
+  --fg: #f7f5f1;
+  --fg-2: #b4b0a8;
+  --fg-3: #8a8780;
+  --orange: #d9711a;
+  --orange-2: #e8842f;
+  --link: #e8842f;
+  --ivory: #f7f5f1;
+  --ink: #17191e;
+  --green: #3fbf88;
   --blue: #3ab8ee;
   --amber: #f2b33d;
   --red: #f0716a;
@@ -32,8 +35,8 @@
 
 @media (prefers-color-scheme: light) {
   :root {
-    --bg: #f6f5f2;
-    --bg-2: #efede8;
+    --bg: #f7f5f1;
+    --bg-2: #efece6;
     --surface: #ffffff;
     --surface-2: #f4f2ee;
     --line: #e0dcd4;
@@ -42,7 +45,9 @@
     --fg-3: #6c7585;
     --orange: #d9711a;
     --orange-2: #c4630f;
-    --green: #1f9d55;
+    /* #D9711A is 3:1 on ivory: fine for the logo and large type, too light for small text. */
+    --link: #a8530c;
+    --green: #12784f;
     --blue: #1785b8;
     --amber: #b9780a;
     --red: #c9413a;
@@ -64,7 +69,7 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-a { color: var(--orange); text-decoration: none; }
+a { color: var(--link); text-decoration: none; }
 a:hover { text-decoration: underline; }
 img, svg { display: block; }
 code, kbd { font-family: var(--mono); font-size: 0.88em; }
@@ -92,13 +97,14 @@ code { background: var(--surface-2); border: 1px solid var(--line); border-radiu
 
 .brand { display: flex; align-items: center; gap: 10px; color: var(--fg); font-weight: 650; letter-spacing: -0.01em; }
 .brand:hover { text-decoration: none; }
-.brand img { width: 32px; height: 32px; }
+.brand picture, .brand img { display: block; width: auto; height: 38px; }
 .brand .ver {
   font: 600 11px/1 var(--mono); color: var(--fg-3);
   border: 1px solid var(--line); border-radius: 999px; padding: 4px 7px;
 }
 
 .nav { display: flex; gap: 22px; margin-left: auto; align-items: center; }
+.top .lang { margin-left: 4px; }
 .nav a { color: var(--fg-2); font-size: 14.5px; }
 .nav a:hover { color: var(--fg); text-decoration: none; }
 
@@ -139,9 +145,9 @@ code { background: var(--surface-2); border: 1px solid var(--line); border-radiu
 }
 .leds { display: inline-flex; gap: 4px; }
 .leds i { width: 7px; height: 7px; border-radius: 50%; display: block; }
-.leds i:nth-child(1) { background: var(--orange); }
-.leds i:nth-child(2) { background: var(--green); }
-.leds i:nth-child(3) { background: var(--blue); }
+/* The two LEDs of the logo's server stack: green on top, orange below. */
+.leds i:nth-child(1) { background: var(--green); }
+.leds i:nth-child(2) { background: var(--orange); }
 
 h1 {
   margin: 0 0 18px; font: 750 clamp(40px, 5.4vw, 62px)/1.04 var(--font-display);
@@ -173,7 +179,7 @@ section { padding: 88px 0; }
 .band { background: var(--bg-2); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
 
 .section-head { max-width: 680px; margin-bottom: 44px; }
-.kicker { font: 700 12px/1 var(--mono); letter-spacing: 0.12em; text-transform: uppercase; color: var(--orange); margin-bottom: 14px; }
+.kicker { font: 700 12px/1 var(--mono); letter-spacing: 0.12em; text-transform: uppercase; color: var(--link); margin-bottom: 14px; }
 h2 { margin: 0 0 14px; font: 720 clamp(30px, 3.6vw, 42px)/1.1 var(--font-display); letter-spacing: -0.025em; }
 h3 { margin: 0 0 8px; font-size: 17.5px; font-weight: 650; letter-spacing: -0.01em; }
 .section-head p { margin: 0; color: var(--fg-2); font-size: 17px; }
@@ -268,7 +274,8 @@ p { margin: 0 0 12px; }
   background: linear-gradient(135deg, color-mix(in srgb, var(--orange) 20%, var(--surface)), var(--surface) 62%);
   border: 1px solid color-mix(in srgb, var(--orange) 30%, var(--line));
 }
-.dl-card img.mascot { position: absolute; right: -22px; bottom: -26px; width: 190px; height: 190px; opacity: 0.9; }
+.dl-card .mascot { position: absolute; right: -18px; bottom: -22px; width: 190px; opacity: 0.92; }
+.dl-card .mascot img { width: 100%; height: auto; }
 .dl-card h2 { margin-bottom: 10px; }
 .dl-card p { color: var(--fg-2); max-width: 30em; margin-bottom: 24px; }
 .dl-meta { margin-top: 18px; font-size: 13.5px; color: var(--fg-3); display: flex; gap: 16px; flex-wrap: wrap; position: relative; }
@@ -290,6 +297,7 @@ p { margin: 0 0 12px; }
 footer { padding: 40px 0 56px; border-top: 1px solid var(--line); color: var(--fg-3); font-size: 14px; }
 footer .wrap { display: flex; gap: 24px; flex-wrap: wrap; align-items: center; justify-content: space-between; }
 footer .brand { font-size: 15px; }
+footer .brand picture, footer .brand img { height: 28px; }
 footer nav { display: flex; gap: 20px; flex-wrap: wrap; }
 footer nav a { color: var(--fg-2); }
 
@@ -306,14 +314,14 @@ footer nav a { color: var(--fg-2); }
 }
 
 @media (max-width: 680px) {
-  .nav a:not(.gh) { display: none; }
+  .nav > a:not(.gh) { display: none; }
   .hero { padding: 44px 0 56px; }
   section { padding: 60px 0; }
   .steps, .pillars, .bento { grid-template-columns: minmax(0, 1fr); }
   .tile, .tile.wide, .tile.full { grid-column: span 1; }
   .btn { width: 100%; justify-content: center; }
   .dl-card { padding: 28px; }
-  .dl-card img.mascot { width: 130px; height: 130px; }
+  .dl-card .mascot { width: 130px; }
   .included th:nth-child(2), .included td:nth-child(2) { display: none; }
 }
 
@@ -321,4 +329,146 @@ footer nav a { color: var(--fg-2); }
   html { scroll-behavior: auto; }
   .btn { transition: none; }
   .btn:hover { transform: none; }
+}
+
+/* ---------- language switch ---------- */
+
+.lang { display: flex; border: 1px solid var(--line); border-radius: 999px; overflow: hidden; font-size: 12.5px; }
+.lang a { padding: 4px 10px; color: var(--fg-3); }
+.lang a:hover { text-decoration: none; color: var(--fg); }
+.lang a[aria-current="true"] { background: var(--surface-2); color: var(--fg); }
+
+/* ---------- hero demo: a live control panel ---------- */
+
+/* Without JavaScript, or with reduced motion, the real screenshot stands in for the demo. */
+.no-js .demo, .demo-static .demo { display: none; }
+.js:not(.demo-static) .hero-shot { display: none; }
+
+.demo { position: relative; padding-top: 46px; }
+.demo .peek {
+  position: absolute; top: 0; right: 54px; width: 92px; height: 92px; z-index: 0;
+  transform: translateY(20px); transition: transform 0.6s cubic-bezier(.2, .9, .3, 1.3);
+  filter: drop-shadow(0 10px 18px rgba(0, 0, 0, .35));
+}
+.demo.on .peek { transform: translateY(0) rotate(-4deg); }
+
+.win {
+  position: relative; z-index: 1; border-radius: 12px; overflow: hidden;
+  background: #f3f3f3; color: #1b1b1b; border: 1px solid #c9ccd1;
+  box-shadow: var(--shadow); font: 13px/1.45 "Segoe UI", system-ui, sans-serif;
+}
+.win-bar { display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: #ffffff; border-bottom: 1px solid #e3e3e3; color: #555; font-size: 12.5px; }
+.win-bar img { width: 16px; height: 16px; }
+.win-bar .wb { margin-left: auto; display: flex; gap: 14px; color: #999; letter-spacing: 2px; }
+.win-tools { display: flex; flex-wrap: wrap; gap: 4px 12px; padding: 7px 10px; background: #fafafa; border-bottom: 1px solid #e3e3e3; }
+.win-tools button, .win-tools span {
+  display: inline-flex; align-items: center; gap: 6px; border: 0; background: none; padding: 4px 6px; border-radius: 5px;
+  font: inherit; color: #1b1b1b;
+}
+.win-tools button { cursor: pointer; }
+.win-tools button:hover:not(:disabled) { background: #e7eef8; }
+.win-tools button:disabled { color: #a0a0a0; cursor: default; }
+.win-tools svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.win-tools .go svg { color: #008000; }
+.win-tools .halt svg { color: #c00000; }
+.win-tools button:disabled svg { color: #b5b5b5; }
+.win-tools .muted-ic svg { color: #5a5a5a; }
+
+.svc { margin: 10px; border: 1px solid #c9ccd1; background: #fff; }
+.svc-head, .svc-row { display: grid; grid-template-columns: 1.2fr 1fr 0.7fr 1.1fr 0.9fr; gap: 8px; padding: 4px 10px; }
+.svc-head { border-bottom: 1px solid #e3e3e3; color: #444; }
+.svc-row { align-items: center; }
+.svc-row .name { display: flex; align-items: center; gap: 8px; }
+.svc-row .pid, .svc-head .pid { text-align: right; font-variant-numeric: tabular-nums; }
+.dot { width: 10px; height: 10px; border-radius: 50%; background: #9a9a9a; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .15); flex: none; display: inline-block; transition: background .3s; }
+.st { color: #6d6d6d; transition: color .3s; }
+[data-state="starting"] .dot { background: #e08a00; animation: pulse 0.9s ease-in-out infinite; }
+[data-state="starting"] .st { color: #b45f00; }
+[data-state="running"] .dot { background: #1aa34a; }
+[data-state="running"] .st { color: #008000; }
+@keyframes pulse { 50% { opacity: .35; } }
+
+.log {
+  margin: 0 10px 10px; height: 168px; overflow: hidden; padding: 8px 10px; border: 1px solid #c9ccd1; background: #fff;
+  font: 12px/1.55 "Cascadia Mono", Consolas, monospace; color: #1b1b1b; white-space: pre-wrap;
+}
+.log .t { color: #8a8a8a; }
+.log .ok { color: #008000; }
+.log .lnk { color: #0066cc; text-decoration: underline; }
+.log .line { display: block; animation: logIn .25s ease-out; }
+@keyframes logIn { from { opacity: 0; transform: translateY(4px); } }
+
+.win-status { display: flex; align-items: center; border-top: 1px solid #e3e3e3; background: #f0f0f0; font-size: 12.5px; }
+.win-status > * { padding: 4px 10px; }
+.win-status .gs { display: inline-flex; align-items: center; gap: 7px; margin-right: auto; color: #6d6d6d; }
+.win-status .seg { border-left: 1px solid #d5d5d5; color: #333; }
+.win[data-state="running"] .win-status .gs { color: #008000; }
+.win[data-state="running"] .win-status .gs .dot { background: #1aa34a; }
+.win[data-state="starting"] .win-status .gs { color: #b45f00; }
+.win[data-state="starting"] .win-status .gs .dot { background: #e08a00; }
+
+.browser {
+  position: absolute; z-index: 2; left: -26px; bottom: -22px;
+  display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 12px;
+  background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow);
+  font-size: 13.5px; color: var(--fg); opacity: 0; transform: translateY(10px) scale(.96);
+  transition: opacity .4s ease, transform .4s ease; pointer-events: none;
+}
+.browser .url { font-family: var(--mono); color: var(--fg-2); }
+.browser .okc { color: var(--green); font-weight: 700; }
+.demo.on .browser { opacity: 1; transform: none; }
+
+.demo-hint { margin-top: 34px; text-align: center; font-size: 13px; color: var(--fg-3); }
+
+/* ---------- gallery ---------- */
+
+.gallery {
+  display: grid; grid-auto-flow: column; grid-auto-columns: minmax(300px, 72%); gap: 22px;
+  overflow-x: auto; scroll-snap-type: x mandatory; padding: 6px 2px 18px;
+  scrollbar-width: thin; scrollbar-color: var(--line) transparent;
+}
+.gallery .shot { scroll-snap-align: start; }
+.gallery figcaption strong { color: var(--fg); font-weight: 600; margin-right: 6px; }
+.gallery-note { font-size: 13px; color: var(--fg-3); margin-top: 6px; }
+
+/* ---------- PHP update: extensions carried across ---------- */
+
+.migrate { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 18px; align-items: center; }
+.rt { border-radius: 16px; border: 1px solid var(--line); background: var(--surface); padding: 18px; }
+.rt.new { border-color: color-mix(in srgb, var(--green) 50%, var(--line)); box-shadow: 0 0 0 4px color-mix(in srgb, var(--green) 10%, transparent); }
+.rt-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 14px; }
+.rt-ver { font: 700 17px/1.2 var(--mono); }
+.rt-tag { font-size: 11.5px; padding: 3px 9px; border-radius: 999px; border: 1px solid var(--line); color: var(--fg-3); }
+.rt.new .rt-tag { color: var(--green); border-color: color-mix(in srgb, var(--green) 45%, var(--line)); }
+.rt-ext { display: grid; gap: 8px; }
+.x { font: 12.5px/1 var(--mono); padding: 8px 10px; border-radius: 9px; background: var(--surface-2); border: 1px solid var(--line); color: var(--fg-2); }
+.x.own { border-color: color-mix(in srgb, var(--purple) 50%, var(--line)); color: var(--fg); }
+.x.own::before { content: "+ "; color: var(--purple); }
+.rt.new .x.own { animation: carry 6s ease-in-out infinite; }
+.rt.new .x.own:nth-child(2) { animation-delay: .35s; }
+.rt.new .x.own:nth-child(3) { animation-delay: .7s; }
+@keyframes carry {
+  0%, 12% { opacity: 0; transform: translateX(-48px); }
+  28%, 88% { opacity: 1; transform: none; }
+  100% { opacity: 0; }
+}
+.flow { display: grid; justify-items: center; gap: 8px; color: var(--fg-3); font-size: 12px; text-align: center; }
+.flow svg { width: 46px; height: 46px; color: var(--orange); fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.flow .sha { font-family: var(--mono); color: var(--green); }
+
+@media (max-width: 960px) {
+  .migrate { grid-template-columns: minmax(0, 1fr); }
+  .flow svg { transform: rotate(90deg); }
+  .browser { left: 10px; }
+  .demo .peek { right: 24px; }
+}
+@media (max-width: 680px) {
+  .svc-head, .svc-row { grid-template-columns: 1.3fr 1fr 1fr; }
+  .svc-head .pid, .svc-row .pid, .svc-head .ver, .svc-row .ver { display: none; }
+  .win-tools .opt { display: none; }
+  .gallery { grid-auto-columns: 88%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rt.new .x.own, [data-state="starting"] .dot, .log .line { animation: none; }
+  .demo .peek, .browser { transition: none; }
 }

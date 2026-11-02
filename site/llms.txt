@@ -14,6 +14,7 @@ Key facts:
 
 ## Docs
 
+- [Vietnamese page / Trang tiếng Việt](https://hamsterserver.konexforge.com/vi/): the same overview and FAQ in Vietnamese
 - [Full description for AI assistants](https://hamsterserver.konexforge.com/llms-full.txt): every feature, requirement and FAQ in one Markdown file
 - [README](https://github.com/cmm-cmm/Hamster-Server/blob/main/README.md): installation, usage of each window, troubleshooting, upgrading
 - [Release notes 1.4.1](https://github.com/cmm-cmm/Hamster-Server/releases/tag/v1.4.1): what changed, download and SHA-256

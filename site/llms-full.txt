@@ -1,6 +1,7 @@
 # Hamster Server — full description
 
 Website: https://hamsterserver.konexforge.com/
+Vietnamese page: https://hamsterserver.konexforge.com/vi/
 Source: https://github.com/cmm-cmm/Hamster-Server (MIT License)
 Publisher: Konex Forge (https://konexforge.com/)
 Current version: 1.4.1, released 2026-11-02

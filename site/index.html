@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" class="no-js">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -7,11 +7,12 @@
 <meta name="description" content="Hamster Server is a free, open-source local web server for Windows. It bundles Apache 2.4 and PHP 8.2–8.5 with a control panel, keeps PHP on the latest patch automatically and shows which program holds a port. Portable, no installer.">
 <link rel="canonical" href="https://hamsterserver.konexforge.com/">
 <link rel="alternate" hreflang="en" href="https://hamsterserver.konexforge.com/">
+<link rel="alternate" hreflang="vi" href="https://hamsterserver.konexforge.com/vi/">
 <link rel="alternate" hreflang="x-default" href="https://hamsterserver.konexforge.com/">
 <meta name="robots" content="index, follow, max-image-preview:large">
 <meta name="author" content="Konex Forge">
-<meta name="theme-color" content="#0e1116" media="(prefers-color-scheme: dark)">
-<meta name="theme-color" content="#f6f5f2" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#111317" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f7f5f1" media="(prefers-color-scheme: light)">
 
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Hamster Server">
@@ -21,37 +22,39 @@
 <meta property="og:image" content="https://hamsterserver.konexforge.com/assets/og-image.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="Hamster Server — Apache and PHP on Windows, no config files">
+<meta property="og:image:alt" content="The Hamster Server control panel with Apache and PHP running">
 <meta property="og:locale" content="en_US">
+<meta property="og:locale:alternate" content="vi_VN">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Hamster Server — Apache and PHP on Windows, no config files">
 <meta name="twitter:description" content="A free, portable Apache + PHP 8.2–8.5 development server for Windows. PHP updates itself, extensions come along, and port conflicts are explained.">
 <meta name="twitter:image" content="https://hamsterserver.konexforge.com/assets/og-image.png">
 
-<link rel="icon" href="/favicon.ico" sizes="32x32">
-<link rel="icon" type="image/png" href="/assets/favicon-32.png">
+<link rel="icon" href="/favicon.ico" sizes="any">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="manifest" href="/site.webmanifest">
 <link rel="alternate" type="text/plain" title="Summary for AI assistants" href="/llms.txt">
 <link rel="stylesheet" href="/assets/site.css">
+<script src="/assets/demo.js" defer></script>
 
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
   "@graph": [
+    { "@type": "Organization", "@id": "https://konexforge.com/#org", "name": "Konex Forge", "url": "https://konexforge.com/" },
     {
-      "@type": "Organization",
-      "@id": "https://konexforge.com/#org",
-      "name": "Konex Forge",
-      "url": "https://konexforge.com/"
+      "@type": "WebSite", "@id": "https://hamsterserver.konexforge.com/#site",
+      "url": "https://hamsterserver.konexforge.com/", "name": "Hamster Server",
+      "inLanguage": ["en", "vi"], "publisher": { "@id": "https://konexforge.com/#org" }
     },
     {
-      "@type": "WebSite",
-      "@id": "https://hamsterserver.konexforge.com/#site",
-      "url": "https://hamsterserver.konexforge.com/",
-      "name": "Hamster Server",
-      "inLanguage": "en",
-      "publisher": { "@id": "https://konexforge.com/#org" }
+      "@type": "WebPage", "@id": "https://hamsterserver.konexforge.com/#page",
+      "url": "https://hamsterserver.konexforge.com/", "inLanguage": "en",
+      "name": "Hamster Server — Portable Apache & PHP development server for Windows",
+      "isPartOf": { "@id": "https://hamsterserver.konexforge.com/#site" },
+      "about": { "@id": "https://hamsterserver.konexforge.com/#app" },
+      "primaryImageOfPage": "https://hamsterserver.konexforge.com/images/main-window.png"
     },
     {
       "@type": "SoftwareApplication",
@@ -62,17 +65,19 @@
       "applicationCategory": "DeveloperApplication",
       "applicationSubCategory": "Local web development server",
       "operatingSystem": "Windows 10, Windows 11 (x64)",
-      "softwareVersion": "1.4.0",
+      "softwareVersion": "1.4.1",
       "datePublished": "2026-11-02",
       "softwareRequirements": ".NET 10 Desktop Runtime (x64)",
       "fileSize": "155 MB",
-      "downloadUrl": "https://github.com/cmm-cmm/Hamster-Server/releases/download/v1.4.0/HamsterServer-1.4.0-win-x64.zip",
+      "downloadUrl": "https://github.com/cmm-cmm/Hamster-Server/releases/download/v1.4.1/HamsterServer-1.4.1-win-x64.zip",
       "installUrl": "https://github.com/cmm-cmm/Hamster-Server/releases/latest",
-      "releaseNotes": "https://github.com/cmm-cmm/Hamster-Server/releases/tag/v1.4.0",
+      "releaseNotes": "https://github.com/cmm-cmm/Hamster-Server/releases/tag/v1.4.1",
       "license": "https://opensource.org/licenses/MIT",
       "isAccessibleForFree": true,
+      "inLanguage": "en",
       "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
       "screenshot": [
+        "https://hamsterserver.konexforge.com/images/main-window.png",
         "https://hamsterserver.konexforge.com/images/php-version-manager.png",
         "https://hamsterserver.konexforge.com/images/ports-system.png",
         "https://hamsterserver.konexforge.com/images/virtual-hosts.png"
@@ -102,13 +107,14 @@
     },
     {
       "@type": "FAQPage",
+      "inLanguage": "en",
       "mainEntity": [
         { "@type": "Question", "name": "What is Hamster Server?",
           "acceptedAnswer": { "@type": "Answer", "text": "Hamster Server is a free, open-source local web server for Windows. It bundles Apache HTTP Server and PHP 8.2 to 8.5 with a control panel that generates all configuration, so PHP projects run at http://localhost/ or under names like shop.test without editing httpd.conf or php.ini." } },
         { "@type": "Question", "name": "Is Hamster Server free?",
           "acceptedAnswer": { "@type": "Answer", "text": "Yes. Hamster Server is free and its source code is released under the MIT License. The bundled Apache and PHP builds keep their own open-source licenses." } },
         { "@type": "Question", "name": "Which PHP versions does Hamster Server include?",
-          "acceptedAnswer": { "@type": "Answer", "text": "Version 1.4.0 includes PHP 8.2.33, 8.3.33, 8.4.24 and 8.5.9 (Non Thread Safe, x64). Any other official Windows release can be installed from php.net in the PHP Version Manager, and the active branch is moved to its newest patch automatically unless updates are turned off." } },
+          "acceptedAnswer": { "@type": "Answer", "text": "Version 1.4.1 includes PHP 8.2.35, 8.3.36, 8.4.27 and 8.5.12 (Non Thread Safe, x64, the -1 Windows rebuilds), which carry the fixes for the PHP2Shell vulnerabilities CVE-2026-109618 and CVE-2026-109619. Any other official Windows release can be installed from php.net in the PHP Version Manager, and the active branch is moved to its newest patch automatically unless updates are turned off." } },
         { "@type": "Question", "name": "Does Hamster Server update PHP automatically?",
           "acceptedAnswer": { "@type": "Answer", "text": "Yes, by default. It checks php.net a minute after it starts and every six hours, installs a newer patch of the PHP branch in use next to the current one, and switches to it while no request is running. Updates can be set to notify only, or turned off. It never moves to another PHP branch on its own." } },
         { "@type": "Question", "name": "Will extensions such as sqlsrv or Xdebug survive a PHP update?",
@@ -118,7 +124,7 @@
         { "@type": "Question", "name": "Does Hamster Server include MySQL or MariaDB?",
           "acceptedAnswer": { "@type": "Answer", "text": "No. Hamster Server bundles Apache and PHP. PHP's MySQL, PostgreSQL, SQLite and SQL Server extensions can connect to a database server you run separately; the Ports window shows which database servers are listening." } },
         { "@type": "Question", "name": "Why does my virtual host name not open in the browser?",
-          "acceptedAnswer": { "@type": "Answer", "text": "Windows has to know the name points at this computer. Names ending in .localhost work immediately; any other name needs a line such as \"127.0.0.1 shop.test\" in the Windows hosts file. Hamster Server checks the hosts file and shows the exact line to add." } },
+          "acceptedAnswer": { "@type": "Answer", "text": "Windows has to know the name points at this computer. Names ending in .localhost work immediately; any other name needs a line such as 127.0.0.1 shop.test in the Windows hosts file. Hamster Server checks the hosts file and shows the exact line to add." } },
         { "@type": "Question", "name": "What does Hamster Server connect to on the internet?",
           "acceptedAnswer": { "@type": "Answer", "text": "Only windows.php.net and downloads.php.net over HTTPS, to check for and download PHP releases, which are installed only when their SHA-256 checksum matches. Setting updates to Off stops even that. Apache listens on this computer only unless LAN access is enabled." } }
       ]
@@ -133,17 +139,20 @@
 <header class="top">
   <div class="wrap">
     <a class="brand" href="/" aria-label="Hamster Server home">
-      <img src="/assets/logo-64.png" width="32" height="32" alt="">
-      Hamster Server <span class="ver">v1.4.0</span>
+      <picture><source srcset="/assets/brand/horizontal-color.svg" media="(prefers-color-scheme: light)"><img src="/assets/brand/horizontal-reverse.svg" width="173" height="38" alt="Hamster Server"></picture>
+      <span class="ver">v1.4.1</span>
     </a>
     <nav class="nav" aria-label="Main">
       <a href="#features">Features</a>
       <a href="#updates">PHP updates</a>
       <a href="#ports">Ports</a>
-      <a href="#privacy">Privacy</a>
       <a href="#faq">FAQ</a>
       <a class="gh" href="https://github.com/cmm-cmm/Hamster-Server">GitHub</a>
     </nav>
+    <div class="lang" aria-label="Language">
+      <a href="/" hreflang="en" lang="en" aria-current="true">EN</a>
+      <a href="/vi/" hreflang="vi" lang="vi">VI</a>
+    </div>
   </div>
 </header>
 
@@ -153,14 +162,14 @@
   <div class="wrap">
     <div>
       <div class="chips">
-        <span class="chip"><span class="leds" aria-hidden="true"><i></i><i></i><i></i></span>Free · Open source · Windows 10 &amp; 11</span>
+        <span class="chip"><span class="leds" aria-hidden="true"><i></i><i></i></span>Free · Open source · Windows 10 &amp; 11</span>
       </div>
       <h1 id="hero-title">Apache and PHP on Windows, <em>no config files.</em></h1>
       <p class="lead"><strong>Hamster Server</strong> is a free, portable local web server for Windows. It bundles Apache 2.4 and PHP 8.2–8.5 with a control panel that writes every configuration file for you, keeps PHP on the latest patch on its own, and tells you exactly which program is in the way when a port is taken.</p>
       <div class="cta">
-        <a class="btn btn-primary" href="https://github.com/cmm-cmm/Hamster-Server/releases/download/v1.4.0/HamsterServer-1.4.0-win-x64.zip">
+        <a class="btn btn-primary" href="https://github.com/cmm-cmm/Hamster-Server/releases/download/v1.4.1/HamsterServer-1.4.1-win-x64.zip">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7.5 10.5 12 15l4.5-4.5M5 19.5h14"/></svg>
-          <span>Download for Windows<small>v1.4.0 · portable .zip · 155 MB</small></span>
+          <span>Download for Windows<small>v1.4.1 · portable .zip · 155 MB</small></span>
         </a>
         <a class="btn btn-ghost" href="https://github.com/cmm-cmm/Hamster-Server">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8.5 7l-5 5 5 5M15.5 7l5 5-5 5M13.5 5l-3 14"/></svg>
@@ -173,9 +182,33 @@
         <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>MIT licensed</span>
       </div>
     </div>
-    <figure class="shot">
-      <img src="/images/php-version-manager.png" width="900" height="640" alt="The PHP Version Manager: PHP 8.5.9 is active and PHP 8.5.12-1 is available, with an Update button and the list of installed and downloadable PHP versions.">
-    </figure>
+
+    <div>
+      <div class="demo" data-demo>
+        <img class="peek" src="/assets/brand/icon-color.svg" width="92" height="92" alt="">
+        <div class="win" data-state="stopped" role="group" aria-label="Demo of the Hamster Server control panel">
+          <div class="win-bar"><img src="/assets/favicon-16.png" width="16" height="16" alt="">Hamster Server Control Panel<span class="wb" aria-hidden="true">—&nbsp;▢&nbsp;✕</span></div>
+          <div class="win-tools">
+            <button type="button" class="go" data-action="start"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l10.5-6.5z"/></svg>Start All</button>
+            <button type="button" class="halt" data-action="stop" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 6.5h11v11h-11z"/></svg>Stop All</button>
+            <span class="muted-ic opt"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 9.2a2.8 2.8 0 1 0 0 5.6a2.8 2.8 0 1 0 0-5.6zM12 2.8v2.7M12 18.5v2.7M2.8 12h2.7M18.5 12h2.7"/></svg>Settings</span>
+            <span class="muted-ic opt"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h14M14.5 5.5 18 9l-3.5 3.5M20 15H6M9.5 11.5 6 15l3.5 3.5"/></svg>Ports</span>
+          </div>
+          <div class="svc">
+            <div class="svc-head"><span>Module</span><span>Status</span><span class="pid">PID</span><span>Port(s)</span><span class="ver">Version</span></div>
+            <div class="svc-row" data-svc="apache" data-state="stopped"><span class="name"><i class="dot"></i>Apache</span><span class="st">Stopped</span><span class="pid">—</span><span>80</span><span class="ver">2.4.68</span></div>
+            <div class="svc-row" data-svc="php" data-state="stopped"><span class="name"><i class="dot"></i>PHP-CGI</span><span class="st">Stopped</span><span class="pid">—</span><span>9000 (FastCGI)</span><span class="ver">8.5.12-1</span></div>
+          </div>
+          <div class="log" aria-live="polite" aria-label="Log"></div>
+          <div class="win-status"><span class="gs"><i class="dot"></i><span class="gs-text">Stopped</span></span><span class="seg">PHP: 8.5.12-1</span><span class="seg">Apache: 2.4.68</span></div>
+        </div>
+        <div class="browser" aria-hidden="true"><span class="okc">✓</span><span class="url">http://localhost/</span>It works</div>
+      </div>
+      <p class="demo-hint">A live replay of the control panel — press <strong>Stop All</strong> and <strong>Start All</strong>.</p>
+      <figure class="shot hero-shot">
+        <img src="/images/main-window.png" width="900" height="600" alt="The Hamster Server control panel: Apache and PHP-CGI running, with the start-up log below.">
+      </figure>
+    </div>
   </div>
 </section>
 
@@ -194,7 +227,24 @@
   </div>
 </section>
 
-<section id="features" aria-labelledby="features-title">
+<section aria-labelledby="tour-title">
+  <div class="wrap">
+    <div class="section-head">
+      <div class="kicker">A quick tour</div>
+      <h2 id="tour-title">Real windows, not text files.</h2>
+      <p>Every screen below is the actual app. Scroll sideways to see them all.</p>
+    </div>
+    <div class="gallery" tabindex="0" aria-label="Screenshots">
+      <figure class="shot"><img src="/images/main-window.png" width="900" height="600" loading="lazy" alt="Main window with Apache and PHP-CGI running and the start-up log."><figcaption><strong>Control panel</strong>Services, PHP version and the live log.</figcaption></figure>
+      <figure class="shot"><img src="/images/php-version-manager.png" width="900" height="640" loading="lazy" alt="PHP Version Manager with PHP 8.5.9 active and PHP 8.5.12-1 available."><figcaption><strong>PHP Version Manager</strong>Install, update and switch PHP versions.</figcaption></figure>
+      <figure class="shot"><img src="/images/ports-system.png" width="800" height="522" loading="lazy" alt="System ports list with Hamster Server's ports in green and a conflicting program in red."><figcaption><strong>System ports</strong>Every listening port and the program behind it.</figcaption></figure>
+      <figure class="shot"><img src="/images/virtual-hosts.png" width="800" height="548" loading="lazy" alt="Virtual Hosts list with framework presets and the hosts-file check."><figcaption><strong>Virtual Hosts</strong>One name per project, with framework presets.</figcaption></figure>
+      <figure class="shot"><img src="/images/settings-php.png" width="696" height="639" loading="lazy" alt="Settings window, PHP tab, with worker processes and OPcache."><figcaption><strong>Settings</strong>Workers, OPcache and the memory watchdog.</figcaption></figure>
+    </div>
+  </div>
+</section>
+
+<section id="features" class="band" aria-labelledby="features-title">
   <div class="wrap">
     <div class="section-head">
       <div class="kicker">Features</div>
@@ -248,26 +298,48 @@
   </div>
 </section>
 
-<section id="updates" class="band" aria-labelledby="updates-title">
-  <div class="wrap split">
-    <div class="copy">
+<section id="updates" aria-labelledby="updates-title">
+  <div class="wrap">
+    <div class="section-head">
       <div class="kicker">New in 1.4</div>
-      <h2 id="updates-title">PHP keeps itself current.</h2>
-      <p class="muted">Hamster Server checks php.net a minute after it starts and every six hours. When a newer patch of the branch you use appears, such as 8.5.9 → 8.5.12-1, it takes care of the rest.</p>
-      <div class="points">
-        <div class="point"><div class="ic t-amber"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11M7.5 10.5 12 15l4.5-4.5M5 19.5h14"/></svg></div><div><h3>Installed side by side</h3><p>The new patch goes next to the current one and becomes active while nothing is being served. The old one stays, so you can switch back.</p></div></div>
-        <div class="point"><div class="ic t-purple"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8.5 7l-5 5 5 5M15.5 7l5 5-5 5M13.5 5l-3 14"/></svg></div><div><h3>Extensions come along</h3><p>DLLs you added, such as <code>php_sqlsrv.dll</code> or Xdebug, are copied into the new patch. Files it already ships are never overwritten.</p></div></div>
-        <div class="point"><div class="ic t-green"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5l7 2.5v5.5c0 4.3-3 7.6-7 9-4-1.4-7-4.7-7-9V6zM8.8 12.2l2.2 2.2 4.2-4.4"/></svg></div><div><h3>Safe and in your control</h3><p>Only official php.net builds whose SHA-256 checksum matches. Moving to a new branch is always your call. Choose <em>Install automatically</em>, <em>Notify me only</em> or <em>Off</em>.</p></div></div>
+      <h2 id="updates-title">PHP keeps itself current — and keeps your extensions.</h2>
+      <p>Hamster Server checks php.net a minute after it starts and every six hours. When a newer patch of the branch you use appears, it installs it next to the current one and moves your own extensions across.</p>
+    </div>
+    <div class="migrate" aria-label="PHP 8.5.9 is updated to 8.5.12-1 and the user's extensions are copied over">
+      <div class="rt">
+        <div class="rt-head"><span class="rt-ver">PHP 8.5.9</span><span class="rt-tag">kept for rollback</span></div>
+        <div class="rt-ext">
+          <span class="x own">php_sqlsrv.dll</span>
+          <span class="x own">php_pdo_sqlsrv.dll</span>
+          <span class="x own">php_xdebug.dll</span>
+          <span class="x">php_curl.dll · php_intl.dll · …</span>
+        </div>
+      </div>
+      <div class="flow">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h15M14 7l5 5-5 5"/></svg>
+        <span>downloads.php.net</span>
+        <span class="sha">SHA-256 ✓</span>
+      </div>
+      <div class="rt new">
+        <div class="rt-head"><span class="rt-ver">PHP 8.5.12-1</span><span class="rt-tag">active</span></div>
+        <div class="rt-ext">
+          <span class="x own">php_sqlsrv.dll</span>
+          <span class="x own">php_pdo_sqlsrv.dll</span>
+          <span class="x own">php_xdebug.dll</span>
+          <span class="x">php_curl.dll · php_intl.dll · …</span>
+        </div>
       </div>
     </div>
-    <figure class="shot">
-      <img src="/images/php-version-manager.png" width="900" height="640" loading="lazy" alt="PHP Version Manager showing PHP 8.5.9 active, an Update to 8.5.12-1 button and the automatic update setting.">
-      <figcaption>The PHP Version Manager: active version, available update and the update mode.</figcaption>
-    </figure>
+    <div class="pillars" style="margin-top: 28px">
+      <div class="pillar"><h3>Side by side</h3><p>The new patch becomes active only when no request is running. The old one stays, so you can switch back.</p></div>
+      <div class="pillar"><h3>Your extensions follow</h3><p>DLLs you added are copied over. Files the new patch already ships are never overwritten.</p></div>
+      <div class="pillar"><h3>Same branch only</h3><p>8.5.x stays 8.5.x. Moving to a new branch is your call, because extensions are built per branch.</p></div>
+      <div class="pillar"><h3>Your choice</h3><p><em>Install automatically</em>, <em>Notify me only</em> or <em>Off</em>, set in the PHP Version Manager.</p></div>
+    </div>
   </div>
 </section>
 
-<section id="ports" aria-labelledby="ports-title">
+<section id="ports" class="band" aria-labelledby="ports-title">
   <div class="wrap split flip">
     <div class="copy">
       <div class="kicker">Ports</div>
@@ -290,7 +362,7 @@
   </div>
 </section>
 
-<section class="band" aria-labelledby="sites-title">
+<section aria-labelledby="sites-title">
   <div class="wrap split">
     <div class="copy">
       <div class="kicker">Virtual hosts</div>
@@ -306,7 +378,7 @@
   </div>
 </section>
 
-<section id="privacy" aria-labelledby="privacy-title">
+<section id="privacy" class="band" aria-labelledby="privacy-title">
   <div class="wrap">
     <div class="section-head">
       <div class="kicker">Privacy</div>
@@ -322,36 +394,36 @@
   </div>
 </section>
 
-<section class="band" aria-labelledby="included-title">
+<section aria-labelledby="included-title">
   <div class="wrap">
     <div class="section-head">
       <div class="kicker">What's inside</div>
-      <h2 id="included-title">Included in version 1.4.0</h2>
+      <h2 id="included-title">Included in version 1.4.1</h2>
       <p>Official builds, recorded with their checksums in the repository's <a href="https://github.com/cmm-cmm/Hamster-Server/blob/main/THIRD_PARTY_RUNTIMES.md">THIRD_PARTY_RUNTIMES.md</a>.</p>
     </div>
     <table class="included">
       <thead><tr><th scope="col">Component</th><th scope="col">Build</th><th scope="col">Version</th></tr></thead>
       <tbody>
         <tr><td>Apache HTTP Server</td><td>Apache Lounge, VS18 Win64</td><td>2.4.68</td></tr>
-        <tr><td>PHP</td><td>Non Thread Safe, x64</td><td>8.2.33 · 8.3.33 · 8.4.24 · 8.5.9</td></tr>
+        <tr><td>PHP</td><td>Non Thread Safe, x64</td><td>8.2.35-1 · 8.3.36-1 · 8.4.27-1 · 8.5.12-1</td></tr>
         <tr><td>CA certificate bundle</td><td>Mozilla roots</td><td>2026-08-13</td></tr>
       </tbody>
     </table>
   </div>
 </section>
 
-<section id="download" aria-labelledby="download-title">
+<section id="download" class="band" aria-labelledby="download-title">
   <div class="wrap dl">
     <div class="dl-card">
-      <img class="mascot" src="/assets/logo-256.png" width="190" height="190" alt="" loading="lazy">
+      <picture class="mascot"><source srcset="/assets/brand/icon-color.svg" media="(prefers-color-scheme: light)"><img src="/assets/brand/icon-reverse.svg" width="190" height="190" alt="" loading="lazy"></picture>
       <h2 id="download-title">Get Hamster Server</h2>
       <p>Free and open source. Portable: extract it, run it, delete the folder to remove it.</p>
-      <a class="btn btn-primary" href="https://github.com/cmm-cmm/Hamster-Server/releases/download/v1.4.0/HamsterServer-1.4.0-win-x64.zip">
+      <a class="btn btn-primary" href="https://github.com/cmm-cmm/Hamster-Server/releases/download/v1.4.1/HamsterServer-1.4.1-win-x64.zip">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7.5 10.5 12 15l4.5-4.5M5 19.5h14"/></svg>
-        <span>Download v1.4.0<small>HamsterServer-1.4.0-win-x64.zip · 155 MB</small></span>
+        <span>Download v1.4.1<small>HamsterServer-1.4.1-win-x64.zip · 155 MB</small></span>
       </a>
       <div class="dl-meta">
-        <a href="https://github.com/cmm-cmm/Hamster-Server/releases/tag/v1.4.0">Release notes &amp; SHA-256</a>
+        <a href="https://github.com/cmm-cmm/Hamster-Server/releases/tag/v1.4.1">Release notes &amp; SHA-256</a>
         <a href="https://github.com/cmm-cmm/Hamster-Server/releases">All releases</a>
         <a href="https://github.com/cmm-cmm/Hamster-Server#readme">Documentation</a>
       </div>
@@ -368,7 +440,7 @@
   </div>
 </section>
 
-<section id="faq" class="band" aria-labelledby="faq-title">
+<section id="faq" aria-labelledby="faq-title">
   <div class="wrap">
     <div class="section-head">
       <div class="kicker">FAQ</div>
@@ -377,7 +449,7 @@
     <div class="faq">
       <details open><summary>What is Hamster Server?</summary><p>Hamster Server is a free, open-source local web server for Windows. It bundles Apache HTTP Server and PHP 8.2 to 8.5 with a control panel that generates all configuration, so PHP projects run at <code>http://localhost/</code> or under names like <code>shop.test</code> without editing <code>httpd.conf</code> or <code>php.ini</code>.</p></details>
       <details><summary>Is Hamster Server free?</summary><p>Yes. Hamster Server is free and its source code is released under the MIT License. The bundled Apache and PHP builds keep their own open-source licenses.</p></details>
-      <details><summary>Which PHP versions does it include?</summary><p>Version 1.4.0 includes PHP 8.2.33, 8.3.33, 8.4.24 and 8.5.9 (Non Thread Safe, x64). Any other official Windows release can be installed from php.net in the PHP Version Manager, and the active branch is moved to its newest patch automatically unless updates are turned off.</p></details>
+      <details><summary>Which PHP versions does it include?</summary><p>Version 1.4.1 includes PHP 8.2.35, 8.3.36, 8.4.27 and 8.5.12 (Non Thread Safe, x64, the -1 Windows rebuilds), which carry the fixes for the PHP2Shell vulnerabilities CVE-2026-109618 and CVE-2026-109619. Any other official Windows release can be installed from php.net in the PHP Version Manager, and the active branch is moved to its newest patch automatically unless updates are turned off.</p></details>
       <details><summary>Does it update PHP automatically?</summary><p>Yes, by default. It checks php.net a minute after it starts and every six hours, installs a newer patch of the PHP branch in use next to the current one, and switches to it while no request is running. Updates can be set to notify only, or turned off. It never moves to another PHP branch on its own.</p></details>
       <details><summary>Will extensions such as sqlsrv or Xdebug survive a PHP update?</summary><p>Yes. Extension DLLs added to a runtime's <code>ext</code> folder, and the DLLs they depend on, are copied into the new patch of the same PHP branch. Files the new patch already ships are never overwritten. Extensions are not copied across branches (for example 8.4 to 8.5) because they are built per branch.</p></details>
       <details><summary>Does it need an installer or administrator rights?</summary><p>No. It is a portable folder: extract the zip to a writable location and run <code>HamsterServer.exe</code>. It needs Windows 10 or 11 (x64) and the .NET 10 Desktop Runtime.</p></details>
@@ -392,13 +464,14 @@
 
 <footer>
   <div class="wrap">
-    <a class="brand" href="/"><img src="/assets/logo-64.png" width="28" height="28" alt="" loading="lazy">Hamster Server</a>
+    <a class="brand" href="/"><picture><source srcset="/assets/brand/horizontal-color.svg" media="(prefers-color-scheme: light)"><img src="/assets/brand/horizontal-reverse.svg" width="127" height="28" alt="Hamster Server" loading="lazy"></picture></a>
     <nav aria-label="Footer">
       <a href="https://github.com/cmm-cmm/Hamster-Server">GitHub</a>
       <a href="https://github.com/cmm-cmm/Hamster-Server/releases">Releases</a>
       <a href="https://github.com/cmm-cmm/Hamster-Server/blob/main/LICENSE">MIT License</a>
       <a href="https://github.com/sponsors/cmm-cmm">Sponsor</a>
       <a href="/llms.txt">llms.txt</a>
+      <a href="/vi/" hreflang="vi" lang="vi">Tiếng Việt</a>
     </nav>
     <span>A product of <a href="https://konexforge.com/">Konex Forge</a></span>
   </div>

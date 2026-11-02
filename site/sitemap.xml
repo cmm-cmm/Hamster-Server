@@ -1,12 +1,30 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
   <url>
     <loc>https://hamsterserver.konexforge.com/</loc>
     <lastmod>2026-11-02</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://hamsterserver.konexforge.com/"/>
+    <xhtml:link rel="alternate" hreflang="vi" href="https://hamsterserver.konexforge.com/vi/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://hamsterserver.konexforge.com/"/>
+    <image:image><image:loc>https://hamsterserver.konexforge.com/images/main-window.png</image:loc></image:image>
     <image:image><image:loc>https://hamsterserver.konexforge.com/images/php-version-manager.png</image:loc></image:image>
     <image:image><image:loc>https://hamsterserver.konexforge.com/images/ports-system.png</image:loc></image:image>
     <image:image><image:loc>https://hamsterserver.konexforge.com/images/ports-apache.png</image:loc></image:image>
     <image:image><image:loc>https://hamsterserver.konexforge.com/images/virtual-hosts.png</image:loc></image:image>
+    <image:image><image:loc>https://hamsterserver.konexforge.com/images/settings-php.png</image:loc></image:image>
+  </url>
+  <url>
+    <loc>https://hamsterserver.konexforge.com/vi/</loc>
+    <lastmod>2026-11-02</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://hamsterserver.konexforge.com/"/>
+    <xhtml:link rel="alternate" hreflang="vi" href="https://hamsterserver.konexforge.com/vi/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://hamsterserver.konexforge.com/"/>
+    <image:image><image:loc>https://hamsterserver.konexforge.com/images/main-window.png</image:loc></image:image>
+    <image:image><image:loc>https://hamsterserver.konexforge.com/images/php-version-manager.png</image:loc></image:image>
+    <image:image><image:loc>https://hamsterserver.konexforge.com/images/ports-system.png</image:loc></image:image>
+    <image:image><image:loc>https://hamsterserver.konexforge.com/images/ports-apache.png</image:loc></image:image>
+    <image:image><image:loc>https://hamsterserver.konexforge.com/images/virtual-hosts.png</image:loc></image:image>
+    <image:image><image:loc>https://hamsterserver.konexforge.com/images/settings-php.png</image:loc></image:image>
   </url>
   <url>
     <loc>https://hamsterserver.konexforge.com/llms.txt</loc>
