@@ -51,7 +51,14 @@ public partial class HamsterServerForm : Form
     [DllImport("user32.dll", SetLastError = true)]
     private static extern bool DestroyIcon(IntPtr hIcon);
 
-    public HamsterServerForm()
+    public HamsterServerForm() : this(ResolveRootDir()) { }
+
+    /// <summary>
+    /// Runs against an explicit installation root instead of the one found next to the executable.
+    /// Used by the README / website screenshot test, which starts a throw-away installation on
+    /// other ports so it never touches the instance a developer has open.
+    /// </summary>
+    internal HamsterServerForm(string rootDir)
     {
         InitializeComponent();
 
@@ -62,7 +69,7 @@ public partial class HamsterServerForm : Form
         InitServicesList();
         InitLogTimer();
 
-        _rootDir = ResolveRootDir();
+        _rootDir = rootDir;
         _logWriter = new LogWriter(_rootDir);
         _configMgr = new ConfigManager(_rootDir);
         _configMgr.Load();

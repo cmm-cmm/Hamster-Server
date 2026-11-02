@@ -50,6 +50,133 @@ public sealed class ReadmeScreenshotTests
         Assert.IsNull(failure, failure?.ToString());
     }
 
+    // ─── Main window, with Apache and PHP really running ────────────────────────
+
+    /// <summary>
+    /// Starts a throw-away installation at C:\HamsterServer (copies of the bundled Apache and two PHP
+    /// builds) on ports 8080 / 9100, so a Hamster Server the developer has open on 80 / 9000 is never
+    /// touched, captures the main window once both services run, then stops them and deletes the
+    /// folder. The log pane therefore shows C:\HamsterServer rather than a path of this machine.
+    /// Skips when the folder already exists or a port is taken, and never deletes a folder it did
+    /// not create.
+    /// </summary>
+    [TestMethod]
+    public void RenderMainWindowScreenshot_WhenRequested()
+    {
+        var target = Environment.GetEnvironmentVariable("HAMSTER_README_SCREENSHOTS");
+        if (string.IsNullOrWhiteSpace(target))
+            Assert.Inconclusive("Set HAMSTER_README_SCREENSHOTS to a folder to render the README screenshots.");
+        if (Directory.Exists(SampleRoot))
+            Assert.Inconclusive($"{SampleRoot} already exists; refusing to use or delete it.");
+        var busy = SystemPortScanner.GetTcpListeners().Where(l => l.Port is 8080 or 9100).Select(l => l.Port).ToList();
+        if (busy.Count > 0)
+            Assert.Inconclusive($"Port(s) {string.Join(", ", busy)} are in use.");
+
+        var source = Path.Combine(FindRepositoryRoot(), "HamsterServer");
+        Directory.CreateDirectory(SampleRoot);
+        try
+        {
+            CopyDirectory(Path.Combine(source, "apache"), Path.Combine(SampleRoot, "apache"));
+            CopyDirectory(Path.Combine(source, "php", "8.5.12-1"), Path.Combine(SampleRoot, "php", "8.5.12-1"));
+            CopyDirectory(Path.Combine(source, "php", "8.4.27-1"), Path.Combine(SampleRoot, "php", "8.4.27-1"));
+            CopyDirectory(Path.Combine(source, "www"), Path.Combine(SampleRoot, "www"));
+            Directory.CreateDirectory(Path.Combine(SampleRoot, "config"));
+            File.WriteAllText(Path.Combine(SampleRoot, "config", "hamster-server.json"), """
+                { "autoStart": true, "minimizeToTray": true,
+                  "apache": { "port": 8080, "enableSsl": false },
+                  "php": { "currentVersion": "8.5.12-1", "fcgiPort": 9100, "workers": 4, "updateMode": "Off" } }
+                """);
+
+            Exception? failure = null;
+            var thread = new Thread(() =>
+            {
+                HamsterServerForm? form = null;
+                ServerManager? server = null;
+                try
+                {
+                    form = new HamsterServerForm(SampleRoot);
+                    server = (ServerManager)Field(form, "_server");
+                    Show(form);
+                    var status = (ToolStripStatusLabel)Field(form, "lblGlobalStatus");
+                    try
+                    {
+                        WaitUntil(() => status.Text == "Running", seconds: 60);
+                    }
+                    catch (AssertFailedException)
+                    {
+                        // The log pane says why start-up failed; the folder is deleted afterwards.
+                        Pump(500);
+                        var log = ((RichTextBox)Field(form, "rtbLog")).Text;
+                        throw new AssertFailedException($"Status stayed '{status.Text}'. Log:\n{log[Math.Max(0, log.Length - 3000)..]}");
+                    }
+                    Pump(1500);   // let the log pane flush the last start-up lines
+                    Save(form, Path.Combine(target, "main-window.png"));
+                }
+                catch (Exception ex)
+                {
+                    failure = ex;
+                }
+                finally
+                {
+                    if (server is not null)
+                    {
+                        var stop = server.StopAllAsync();
+                        var until = DateTime.UtcNow.AddSeconds(30);
+                        while (!stop.IsCompleted && DateTime.UtcNow < until) Pump(50);
+                        server.Dispose();
+                    }
+                    if (form is not null)
+                    {
+                        ((NotifyIcon)Field(form, "_tray")).Visible = false;
+                        form.Dispose();
+                    }
+                }
+            });
+            thread.SetApartmentState(ApartmentState.STA);
+            thread.Start();
+            Assert.IsTrue(thread.Join(TimeSpan.FromSeconds(150)), "Rendering timed out.");
+            Assert.IsNull(failure, failure?.ToString());
+        }
+        finally
+        {
+            DeleteWithRetry(SampleRoot);
+        }
+    }
+
+    private static object Field(object owner, string name) =>
+        owner.GetType().GetField(name, System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+            .GetValue(owner)!;
+
+    private static void CopyDirectory(string from, string to)
+    {
+        foreach (var dir in Directory.GetDirectories(from, "*", SearchOption.AllDirectories))
+            Directory.CreateDirectory(dir.Replace(from, to));
+        Directory.CreateDirectory(to);
+        foreach (var file in Directory.GetFiles(from, "*", SearchOption.AllDirectories))
+        {
+            // Generated php.ini files of the source tree hold its paths; the app writes its own.
+            if (Path.GetFileName(file).Equals("php.ini", StringComparison.OrdinalIgnoreCase)) continue;
+            File.Copy(file, file.Replace(from, to));
+        }
+    }
+
+    private static void DeleteWithRetry(string path)
+    {
+        for (int attempt = 0; attempt < 20 && Directory.Exists(path); attempt++)
+        {
+            try { Directory.Delete(path, recursive: true); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { Thread.Sleep(500); }
+        }
+    }
+
+    private static string FindRepositoryRoot()
+    {
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+        while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "HamsterServer.slnx")))
+            directory = directory.Parent;
+        return directory?.FullName ?? throw new DirectoryNotFoundException("HamsterServer.slnx not found.");
+    }
+
     // ─── PHP Version Manager: 8.5.9 active, 8.5.12-1 available ──────────────────
 
     private static void RenderPhpVersionManager(string path)
@@ -162,9 +289,9 @@ public sealed class ReadmeScreenshotTests
         Pump(300);
     }
 
-    private static void WaitUntil(Func<bool> condition)
+    private static void WaitUntil(Func<bool> condition, int seconds = 15)
     {
-        var deadline = DateTime.UtcNow.AddSeconds(15);
+        var deadline = DateTime.UtcNow.AddSeconds(seconds);
         while (!condition())
         {
             Assert.IsTrue(DateTime.UtcNow < deadline, "The window never reached the state to capture.");
