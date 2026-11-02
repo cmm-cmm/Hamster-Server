@@ -11,7 +11,9 @@ Unzip it, press **Start All**, and your PHP projects run at `http://localhost/` 
 like `shop.test`. You don't edit `httpd.conf` or `php.ini` by hand or install services, and PHP
 keeps itself on the latest patch.
 
-![PHP Version Manager](doc/images/php-version-manager.png)
+![PHP Version Manager](site/images/php-version-manager.png)
+
+**Website:** [hamsterserver.konexforge.com](https://hamsterserver.konexforge.com/)
 
 Hamster Server is a product of [Konex Forge](https://konexforge.com/). Current version: **1.4.0**.
 
@@ -141,7 +143,7 @@ in this server setup.
 
 ### Websites (virtual hosts)
 
-![Virtual Hosts](doc/images/virtual-hosts.png)
+![Virtual Hosts](site/images/virtual-hosts.png)
 
 **Tools › Virtual Hosts** lists your sites. For each one you can:
 
@@ -170,7 +172,7 @@ extra ports. Tick or untick a port to switch it on or off. The **On this compute
 you, before you start, whether each port is free, already used by Hamster Server, or taken by
 another program.
 
-![Apache ports](doc/images/ports-apache.png)
+![Apache ports](site/images/ports-apache.png)
 
 **System ports** lists every port that is open on your computer and the program behind it:
 
@@ -182,7 +184,7 @@ another program.
 Filter by port or program, press **F5** to refresh, and right-click a row to open it in the
 browser, open the program's folder or copy its details.
 
-![System ports](doc/images/ports-system.png)
+![System ports](site/images/ports-system.png)
 
 ### Settings
 
@@ -196,7 +198,7 @@ browser, open the program's folder or copy its details.
 - **General:** development or production mode, tray behaviour, starting the services when
   Hamster Server opens, launching with Windows, and access from other computers on your network.
 
-![Settings](doc/images/settings-php.png)
+![Settings](site/images/settings-php.png)
 
 Anything that ends up in `php.ini` is edited in **PHP Configuration**, not here.
 
@@ -278,7 +280,7 @@ Some tests reach outside the test process and only run when you ask for them:
 | `HAMSTER_LIVE_PHPNET=1` | Reads the live php.net release list. |
 | `HAMSTER_LIVE_INSTALL=1` (with the above) | Also downloads, installs and runs the newest PHP release in a temporary folder. |
 | `HAMSTER_FORM_SNAPSHOT_DIR=<folder>` | Renders the configuration windows to PNG files. |
-| `HAMSTER_README_SCREENSHOTS=<folder>` | Renders the screenshots in `doc/images` from sample data. |
+| `HAMSTER_README_SCREENSHOTS=<folder>` | Renders the screenshots in `site/images` (README and website) from sample data. |
 | `HAMSTER_GLYPH_SHEET=<file>.png` | Renders the whole icon set to one image. |
 
 ### Project layout
@@ -292,7 +294,8 @@ Some tests reach outside the test process and only run when you ask for them:
 | `HamsterServer/config/` | Runtime configuration and generated files |
 | `HamsterServer/www/` | Default site, also the performance dashboard |
 | `ssl/` | CA bundle and OpenSSL files |
-| `doc/` | Performance measurements, the icon and logo reference, README images |
+| `doc/` | Performance measurements and the icon and logo reference |
+| `site/` | The website at hamsterserver.konexforge.com; `site/images` also holds the README screenshots |
 | `HamsterServer.Tests/` | Unit, runtime smoke, load and opt-in live tests |
 
 [CLAUDE.md](CLAUDE.md) explains the architecture and the rules the code depends on;

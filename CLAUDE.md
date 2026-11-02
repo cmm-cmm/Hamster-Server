@@ -36,6 +36,8 @@ dotnet test HamsterServer.slnx --filter "Name=Constructor_PopulatesExtensionsBef
 
 The version string lives in three places that a release bump must change together: `<Version>` in `HamsterServer.csproj`, the `HamsterServer-PHP-Version-Manager/<major.minor>` User-Agent in `PhpVersionManager.cs`, and the "Current version: **x.y.z**" line near the top of `README.md`.
 
+The website repeats the released version, so a release also updates `site/`: the `v1.4.0` pill, both download buttons and the "Included in version" heading in `site/index.html`, the JSON-LD `softwareVersion` / `datePublished` / `downloadUrl` / `releaseNotes` there, the facts and download link in `site/llms.txt` and `site/llms-full.txt`, and `<lastmod>` in `site/sitemap.xml`. These point at the GitHub release asset, so publish the release before deploying the site.
+
 **Git LFS is required.** Apache and PHP binaries (`*.dll`, `*.exe`, `*.lib`, `*.so`, `*.phar` under `HamsterServer/apache/` and `HamsterServer/php/`) are committed through LFS — see `.gitattributes`. Cloning without LFS leaves pointer files and every runtime test fails.
 
 ## Repository Layout
@@ -54,6 +56,7 @@ HamsterServer/                     the WinForms app
   www/                       default document root - also the PHP benchmark dashboard app
 ssl/                         cacert.pem + OpenSSL assets, linked into the app output
 doc/PERFORMANCE_EVALUATION.md      measured results and the open FastCGI stability issue
+site/                        the website (hamsterserver.konexforge.com), deployed by wrangler.toml
 THIRD_PARTY_RUNTIMES.md      pinned runtime archives + SHA-256
 ```
 
@@ -225,6 +228,15 @@ Two independent TLS settings exist and are easy to confuse: `apache.sslCertFile`
 
 Designer files are hand-written rather than round-tripped through the Visual Studio designer. Two conventions matter: a `Dock = Fill` control must be added to `Controls` **before** its `Top`/`Bottom` siblings, and each `NumericUpDown` needs its `BeginInit`/`EndInit` pair.
 
+## Website (`site/`)
+
+`site/` is the static website served at **https://hamsterserver.konexforge.com/**, deployed the same way as the other Konex Forge product sites: a Cloudflare Worker with static assets (`wrangler.toml` at the repo root: Worker `hamster-server`, `workers_dev = false`, a Custom Domain route, `not_found_handling = "404-page"`). There is no build step and no `package.json`; deploy from the repo root with `npx wrangler deploy` (preview with `npx wrangler dev`). The Worker, its custom domain and the `AAAA 100::` DNS record on the `konexforge.com` zone are created by that command. Because the repo has a Wrangler config, use Wrangler (not `cf deploy`) for this site; `cf` is fine for read-only checks of zones, DNS and Workers.
+
+- `index.html` is the whole page: dark-first, light via `prefers-color-scheme`, no JavaScript and no third-party requests. Styles are in `assets/site.css`; screenshots in `images/` are also the README's (regenerate them with `ReadmeScreenshotTests`).
+- **SEO:** canonical URL, Open Graph / Twitter tags with `assets/og-image.png` (1200×630), JSON-LD (`Organization`, `WebSite`, `SoftwareApplication`, `SoftwareSourceCode`, `FAQPage`), `robots.txt`, `sitemap.xml` with image entries, `site.webmanifest`, favicons.
+- **GEO** (answers by AI assistants and AI search): `llms.txt` (llmstxt.org format) and `llms-full.txt` (every feature, requirement and FAQ as plain Markdown), a one-sentence definition at the top of the page, and an FAQ whose visible text matches the `FAQPage` JSON-LD word for word — keep them in sync when editing either. `robots.txt` allows AI crawlers by name.
+- `_headers` sets the security headers (same CSP pattern as the other konexforge.com sites, with a nonce Cloudflare copies onto the scripts it injects) and caching; `.assetsignore` keeps a `cf` cache out of the upload. Neither file is served.
+
 ## Testing
 
 `HamsterServer.Tests` is MSTest; `TestDirectory` gives each test a disposable temp root. The test project sets `_GetChildProjectCopyToOutputDirectoryItems=false` so the project reference does not duplicate ~400 MiB of Apache/PHP into the test output — which is why the integration tests locate the repo root by walking up to `HamsterServer.slnx` and run the bundled binaries in place. All six require the LFS runtimes:
@@ -250,7 +262,7 @@ Designer files are hand-written rather than round-tripped through the Visual Stu
 | `MemoryWatchdog_RecyclesThePoolOnceItPassesTheThreshold` | with the threshold set below what the pool already uses, the sweep actually recycles it — proven by a changed PID, not by log text. Takes ~60 s (one sweep interval) |
 | `MemoryWatchdog_RecyclesUnderContinuousTrafficWithoutFailingRequests` | the same recycle happens while one request every 200 ms runs throughout, and costs zero 5xx and zero dropped connections. Takes ~85 s |
 
-`PhpUpdateTests` covers extension carry-over and the updater end to end against a fake php.net (`HttpMessageHandler` serving `releases.json` and the zip, optionally answering the catalog from downloads.php.net as the real redirect does), plus a fixture trimmed from the real catalog. `LiveCatalog_ListsEverySupportedBranch` (`Integration`) queries the real php.net only with `HAMSTER_LIVE_PHPNET=1`, and with `HAMSTER_LIVE_INSTALL=1` also downloads, installs and runs the newest release in a temp folder — the fixtures only know what we expected, this is the check that catches php.net changing format. `ReadmeScreenshotTests` regenerates the README images in `doc/images/` from sample data only (fake php.net catalog, sample listeners through `PortsForm.Scanner`, sample sites) when `HAMSTER_README_SCREENSHOTS=<folder>` is set — re-run it after a visible change to those windows. `FormSnapshotTests` renders Settings (every tab), Virtual Hosts, the vhost dialog, Ports (both tabs) and the port dialog to PNGs when `HAMSTER_FORM_SNAPSHOT_DIR=<folder>` is set (`HAMSTER_SNAPSHOT_ROOT=<install root>` makes a running installation's processes show as Hamster Server in the Ports window). Set `HAMSTER_FORM_SNAPSHOT=<path>.png` when running `PhpVersionManagerFormTests` to render the manager window to an image for reviewing its layout (it then also queries the real php.net).
+`PhpUpdateTests` covers extension carry-over and the updater end to end against a fake php.net (`HttpMessageHandler` serving `releases.json` and the zip, optionally answering the catalog from downloads.php.net as the real redirect does), plus a fixture trimmed from the real catalog. `LiveCatalog_ListsEverySupportedBranch` (`Integration`) queries the real php.net only with `HAMSTER_LIVE_PHPNET=1`, and with `HAMSTER_LIVE_INSTALL=1` also downloads, installs and runs the newest release in a temp folder — the fixtures only know what we expected, this is the check that catches php.net changing format. `ReadmeScreenshotTests` regenerates the README and website images in `site/images/` from sample data only (fake php.net catalog, sample listeners through `PortsForm.Scanner`, sample sites) when `HAMSTER_README_SCREENSHOTS=<folder>` is set — re-run it after a visible change to those windows. `FormSnapshotTests` renders Settings (every tab), Virtual Hosts, the vhost dialog, Ports (both tabs) and the port dialog to PNGs when `HAMSTER_FORM_SNAPSHOT_DIR=<folder>` is set (`HAMSTER_SNAPSHOT_ROOT=<install root>` makes a running installation's processes show as Hamster Server in the Ports window). Set `HAMSTER_FORM_SNAPSHOT=<path>.png` when running `PhpVersionManagerFormTests` to render the manager window to an image for reviewing its layout (it then also queries the real php.net).
 
 UI coverage is minimal by design: `SettingsFormTests` and `PhpVersionManagerFormTests` only assert construction-order invariants (populating controls before the window handle exists), plus that Settings no longer carries any php.ini control and that PHP Configuration hides OPcache from the extension list. There is no functional UI automation, so manually exercise startup, start/stop/restart, PHP version switching, PHP download/update/delete, settings persistence, and vhost changes when touching those paths.
 

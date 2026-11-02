@@ -11,7 +11,7 @@ using HamsterServer.Models;
 namespace HamsterServer.Tests;
 
 /// <summary>
-/// Renders the screenshots in doc/images/ used by the README, from sample data only: a fake php.net
+/// Renders the screenshots in site/images/ used by the README and the website, from sample data only: a fake php.net
 /// catalog, sample listeners for the Ports window and sample sites — so no path, process or address
 /// of the machine running it ends up in the repository. Runs only when HAMSTER_README_SCREENSHOTS
 /// names the output folder.
