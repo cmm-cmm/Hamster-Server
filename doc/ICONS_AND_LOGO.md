@@ -11,9 +11,9 @@ Phiên bản ứng dụng: **1.3.0**. Nguồn sự thật cho màu và glyph: `H
 | Nguyên tắc | Chi tiết |
 |---|---|
 | **Giao diện Windows gốc** | Ứng dụng dùng control chuẩn của WinForms (`MenuStrip`, `ToolStrip`, `ListView`…), không có control tự vẽ kiểu "card". Icon chỉ là một `Image` gắn vào control chuẩn. |
-| **Glyph từ font, không phải file ảnh** | Mọi icon thao tác là một ký tự của font **Segoe Fluent Icons** (Windows 11), dự phòng bằng **Segoe MDL2 Assets** (Windows 10), được vẽ vào bitmap rồi tô màu (`UiTheme.CreateGlyph`). Repo **không có file icon rời** cho toolbar hay menu. |
-| **Dự phòng khi thiếu font** | Nếu máy không có cả hai font, mọi glyph được thay bằng một chấm tròn cùng màu (`UiTheme.CreateStatusDot`). |
-| **Kích thước** | Glyph và chấm trạng thái được dựng ở `UiTheme.IconSize`: **16 px ở 100 %**, nhân theo DPI màn hình chính rồi làm tròn về số chẵn (20 px ở 125 %, 24 px ở 150 %, 32 px ở 200 %). Glyph vẽ ở 87,5 % ô (`size * 0.875`) để không bị cắt nét. |
+| **Bộ SVG riêng, không dùng font** | Mọi icon thao tác là **dữ liệu path SVG** trên lưới 24 px trong `UiTheme.Glyph` (lề 2 px, nét 1,5 px, đầu nét bo tròn, không tô kín). `SvgPath.Parse` đổi path sang `GraphicsPath`, rồi `UiTheme.CreateGlyph` vẽ nét với màu theo nghĩa. Không còn phụ thuộc font Segoe Fluent Icons / MDL2, nên icon giống nhau trên mọi máy Windows. Repo **không có file icon rời**: bản vẽ nằm ngay trong code. |
+| **Kiểm tra** | `IconTests` đảm bảo mọi glyph đọc được, nằm trong lề an toàn và không bị cắt ở 16–48 px. Đặt `HAMSTER_GLYPH_SHEET=<đường dẫn>.png` khi chạy test để xuất bảng xem toàn bộ icon. |
+| **Kích thước** | Glyph và chấm trạng thái được dựng ở `UiTheme.IconSize`: **16 px ở 100 %**, nhân theo DPI màn hình chính rồi làm tròn về số chẵn (20 px ở 125 %, 24 px ở 150 %, 32 px ở 200 %). Nét = 1,5 × (kích thước / 24), tối thiểu 1,25 px để icon 16 px không bị nhạt. |
 | **Màu mang nghĩa, không trang trí** | Xanh lá = chạy/bắt đầu, đỏ = dừng/lỗi/xoá, hổ phách = đang chuyển trạng thái hoặc có rủi ro, xanh dương = thao tác trung tính, xám = cấu hình/không hoạt động. |
 | **Menu cấp cao không có icon** | `File`, `Service`, `Tools`, `Help` cố ý không có icon, đúng quy ước thanh menu của Windows. |
 | **Nút hộp thoại không có icon** | `OK`, `Cancel`, `Close`, `Save`, `Browse…` để trống. Chỉ các nút *hành động* mới có glyph. |
@@ -94,7 +94,7 @@ Một chú hamster màu cam theo phong cách cartoon, mặt kem, tai hồng, có
 | `AccentHttp` | `#005AB4` | HTTP, trình duyệt, proxy |
 | `AccentHttps` | `#008000` | Port HTTPS |
 | `AccentNeutral` | `#5A5A5A` | Cài đặt, xoá log, thu nhỏ |
-| `LogApache` | `#005AB4` | Mọi thứ thuộc Apache (menu, viewer cấu hình, log) |
+| `LogApache` | `#9C2777` | Mọi thứ thuộc Apache (menu, viewer cấu hình, log). Tách khỏi `#005AB4` từ bản này, chọn bằng đo đạc: tương phản 7,1:1 và khác biệt ΔE ≥ 13 với mọi token ở cả thị giác thường lẫn mù màu đỏ/lục/lam. |
 | `LogPhp` | `#7030A0` | Mọi thứ thuộc PHP (menu, viewer cấu hình, log) |
 | `FieldError` | `#FFEBEB` | Nền ô nhập sai |
 | `FieldWarning` | `#FFF8DC` | Nền ô nhập có cảnh báo |
@@ -105,9 +105,9 @@ Khi một dòng `ListView` đang được chọn, `UiTheme.OnHighlight` làm sá
 
 ## 5. Danh mục glyph (`UiTheme.Glyph`)
 
-Codepoint thuộc font Segoe Fluent Icons / Segoe MDL2 Assets. Cột "Số chỗ dùng" đếm số lần gán trong code.
+Mỗi glyph là một chuỗi path SVG trong `UiTheme.Glyph`. Cột "Thay cho" là codepoint Segoe Fluent mà glyph đó thay thế, giữ lại để tra lịch sử. Cột "Số chỗ dùng" đếm số lần gán trong code.
 
-| Tên trong code | Codepoint | Ý nghĩa | Số chỗ dùng |
+| Tên trong code | Thay cho | Ý nghĩa | Số chỗ dùng |
 |---|---|---|---|
 | `Play` | `U+E768` | Start | 6 |
 | `Stop` | `U+E71A` | Stop | 6 |
@@ -246,7 +246,7 @@ Các điểm dưới đây là đầu vào cho đợt thiết kế. Không mục
 | 5 | `server.png` (931 KB) không được dùng. | Giữ làm master nhưng chuyển vào `doc/brand/`, hoặc dùng cho README và favicon. |
 | 6 | Dashboard `www/` chưa có favicon. | Xuất `favicon.ico` (16/32/48) và `apple-touch-icon.png` (180) từ logo. |
 | 7 | Icon ứng dụng dùng chung một hình cho mọi kích thước. | Xem §2.4, mục 1–2. |
-| 8 | `Apache` và `AccentHttp`/`AccentAction` trùng màu `#005AB4`. | Nếu cần phân biệt Apache với "thao tác trung tính", tách hai token. |
+| 8 | ~~`Apache` và `AccentHttp`/`AccentAction` trùng màu `#005AB4`.~~ | **Đã làm**: `LogApache` = `#9C2777`. |
 
 ---
 
@@ -258,7 +258,7 @@ Các điểm dưới đây là đầu vào cho đợt thiết kế. Không mục
 | `server.ico` | 16, 20, 24, 32, 40, 48, 64, 128, 256 px; frame 256 dạng PNG | 16–32 px dùng bản giản lược; chừa góc dưới-phải cho chấm trạng thái |
 | Logo About | Dùng lại frame 128 px của ICO | Hiển thị 64 px logic |
 | Favicon dashboard | `favicon.ico` 16/32/48, `apple-touch-icon.png` 180 px | |
-| Glyph thao tác (nếu bỏ font hệ thống) | 26 glyph ở §5, SVG một màu hoặc PNG 16/20/24/32 px | Phải tô màu được lúc chạy, vì màu mang nghĩa (§4) |
+| Glyph thao tác | Path SVG một màu trên lưới 24 px, đưa thẳng vào `UiTheme.Glyph` | Không cần PNG: app tự vẽ ở mọi kích thước. Phải là nét (không tô) để tô màu lúc chạy |
 | Chấm trạng thái | Giữ cách vẽ bằng code | Chỉ cần chốt 4 màu ở §3 |
 
-Khi thay glyph, chỉ cần sửa `UiTheme.Glyph` / `UiTheme.CreateGlyph`. Mọi nơi dùng đều đi qua hai điểm này, và vị trí gán cho cửa sổ chính nằm gọn trong `HamsterServerForm.InitToolbarIcons`.
+Khi thay glyph, chỉ cần sửa chuỗi path trong `UiTheme.Glyph`, rồi chạy `IconTests` (kèm `HAMSTER_GLYPH_SHEET` để xem bằng mắt). Mọi nơi dùng đều đi qua hai điểm này, và vị trí gán cho cửa sổ chính nằm gọn trong `HamsterServerForm.InitToolbarIcons`.

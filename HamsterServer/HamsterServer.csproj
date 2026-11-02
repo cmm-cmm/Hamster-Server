@@ -64,6 +64,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- UiTheme and SvgPath are internal; the icon tests render every glyph through them. -->
+    <InternalsVisibleTo Include="HamsterServer.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Compile Update="HamsterServerForm.cs">
       <SubType>Form</SubType>
     </Compile>
