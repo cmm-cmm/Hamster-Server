@@ -30,6 +30,26 @@ public sealed class ApacheConfigWriterTests
     }
 
     [TestMethod]
+    public void WritePhpIni_GivesEachRuntimeFolderItsOwnOpcacheSegment()
+    {
+        using var root = new TestDirectory();
+        string WriteFor(string folder)
+        {
+            var phpDir = Path.Combine(root.Path, folder, "php", "8.5.12-1");
+            Directory.CreateDirectory(phpDir);
+            new ApacheConfigWriter(root.Path, new AppConfig()).WritePhpIni(
+                phpDir, Path.Combine(root.Path, "config"), forceRegenerate: true);
+            return File.ReadAllLines(Path.Combine(phpDir, "php.ini"))
+                .Single(line => line.StartsWith("opcache.cache_id", StringComparison.Ordinal));
+        }
+
+        var first = WriteFor("a");
+        StringAssert.Matches(first, new System.Text.RegularExpressions.Regex(@"^opcache\.cache_id\s+= hamster-[0-9a-f]{16}$"));
+        Assert.AreEqual(first, WriteFor("a"), "The same folder must keep its segment across restarts.");
+        Assert.AreNotEqual(first, WriteFor("b"), "Two installations of one PHP build must not share OPcache.");
+    }
+
+    [TestMethod]
     public void WritePhpIni_UpgradesGeneratedFileFromPreviousSchema()
     {
         using var root = new TestDirectory();
@@ -42,7 +62,7 @@ public sealed class ApacheConfigWriterTests
             phpDir, Path.Combine(root.Path, "config"));
 
         var text = File.ReadAllText(phpIni);
-        StringAssert.Contains(text, "; Hamster Server php.ini schema: 2");
+        StringAssert.Contains(text, "; Hamster Server php.ini schema: 3");
         Assert.IsFalse(text.Contains("old schema", StringComparison.Ordinal));
     }
 
@@ -59,7 +79,7 @@ public sealed class ApacheConfigWriterTests
             phpDir, Path.Combine(root.Path, "config"));
 
         var text = File.ReadAllText(phpIni);
-        StringAssert.Contains(text, "; Hamster Server php.ini schema: 2");
+        StringAssert.Contains(text, "; Hamster Server php.ini schema: 3");
         Assert.IsFalse(text.Contains("old schema", StringComparison.Ordinal));
     }
 
