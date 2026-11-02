@@ -236,6 +236,31 @@ public sealed class RuntimeSmokeTests
         Assert.AreEqual(0, process.ExitCode, $"{await stderr}\n{await stdout}");
     }
 
+    // The Apache config dialog validates custom directives with this before saving. Saving a broken
+    // one while Apache ran used to stop Apache and then fail the pre-start test, leaving it down.
+    [TestMethod]
+    [TestCategory("Integration")]
+    public async Task TestApacheConfig_AcceptsValidAndRejectsInvalidCustomDirectives()
+    {
+        // The source tree has the same shape as the app output (php/ + apache/), and nothing here
+        // starts a process that binds a port — httpd only parses the file.
+        var appDir = Path.Combine(FindRepositoryRoot(), "HamsterServer");
+        var server = new ServerManager(appDir, new AppConfig());
+        var configDir = Path.Combine(appDir, "config");
+        string[] TestFiles() => Directory.Exists(configDir)
+            ? Directory.GetFiles(configDir, ".httpd-test-*.conf")
+            : [];
+        var before = TestFiles();
+
+        var valid = await server.TestApacheConfigAsync("ServerSignature Off");
+        var invalid = await server.TestApacheConfigAsync("ThisIsNotAnApacheDirective on");
+
+        Assert.IsTrue(valid.Ok, valid.Output);
+        Assert.IsFalse(invalid.Ok, "httpd -t accepted a directive that does not exist.");
+        StringAssert.Contains(invalid.Output, "ThisIsNotAnApacheDirective");
+        CollectionAssert.AreEquivalent(before, TestFiles(), "The throw-away httpd.conf must be deleted.");
+    }
+
     private static string FindRepositoryRoot()
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);

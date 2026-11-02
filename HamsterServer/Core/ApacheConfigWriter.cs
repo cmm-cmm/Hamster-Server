@@ -415,8 +415,8 @@ extension_dir = ""{extDir}""
 max_execution_time       = {_config.Php.MaxExecutionTime}
 max_input_time           = {_config.Php.MaxExecutionTime}
 memory_limit             = {_config.Php.MemoryLimit}M
-post_max_size            = 128M
-upload_max_filesize      = 128M
+post_max_size            = {_config.Php.PostMaxSize}M
+upload_max_filesize      = {_config.Php.UploadMaxFilesize}M
 max_input_vars           = 10000
 realpath_cache_size      = 8192K
 realpath_cache_ttl       = 600
@@ -425,7 +425,7 @@ realpath_cache_ttl       = 600
 ; FASTCGI RULE: display_errors must ALWAYS be Off in FastCGI mode.
 ; Any PHP error/warning printed to stdout corrupts the FastCGI response headers (ERR_INVALID_RESPONSE).
 ; Errors go to error_log only — use config/logs/php_error.log to debug.
-error_reporting          = {(isProd ? "E_ALL & ~E_DEPRECATED & ~E_STRICT" : "E_ALL")}
+error_reporting          = {ErrorReportingValue(_config)}
 display_errors           = Off
 display_startup_errors   = Off
 log_errors               = On
@@ -433,7 +433,7 @@ error_log                = ""{logsPath}/php_error.log""
 html_errors              = Off
 
 ; Misc
-short_open_tag           = Off
+short_open_tag           = {(_config.Php.ShortOpenTag ? "On" : "Off")}
 default_charset          = ""UTF-8""
 date.timezone            = ""{_config.Php.Timezone}""
 file_uploads             = On
@@ -466,6 +466,19 @@ session.gc_maxlifetime  = 1440
 ";
         File.WriteAllText(phpIniPath, content);
     }
+
+    /// <summary>
+    /// The php.ini <c>error_reporting</c> expression. <c>E_STRICT</c> is deliberately absent: no
+    /// error has been raised at that level since PHP 8.0 and the constant is deprecated in 8.4, so
+    /// masking it out changes nothing except adding a deprecated name to the file.
+    /// </summary>
+    public static string ErrorReportingValue(AppConfig config) => config.Php.ErrorReporting switch
+    {
+        PhpErrorReporting.All => "E_ALL",
+        PhpErrorReporting.NoDeprecated => "E_ALL & ~E_DEPRECATED",
+        PhpErrorReporting.NoNotices => "E_ALL & ~E_NOTICE",
+        _ => config.ServerMode == ServerMode.Production ? "E_ALL & ~E_DEPRECATED" : "E_ALL"
+    };
 
     private static bool UsesExtensionDirectory(IEnumerable<string> lines, string expectedPath)
     {

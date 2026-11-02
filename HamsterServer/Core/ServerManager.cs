@@ -3,6 +3,7 @@ using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Text.Json;
 using HamsterServer.Models;
 
 namespace HamsterServer.Core;
@@ -946,8 +947,42 @@ public class ServerManager : IDisposable
         return candidates.FirstOrDefault(c => File.Exists(Path.Combine(c, "bin", "httpd.exe")));
     }
 
+    /// <summary>
+    /// Runs <c>httpd -t</c> against a throw-away httpd.conf built from the live configuration with
+    /// <paramref name="customDirectives"/> substituted, so a broken directive is rejected before it
+    /// is saved. Without this, saving one while Apache ran stopped Apache and then failed its own
+    /// pre-start config test — leaving the server down over a typo.
+    /// </summary>
+    public async Task<(bool Ok, string Output)> TestApacheConfigAsync(string customDirectives)
+    {
+        var apacheDir = FindApacheDir();
+        if (apacheDir is null) return (true, "Apache not found — configuration was not tested.");
+
+        var configDir = Path.Combine(RootDir, "config");
+        var testConf = Path.Combine(configDir, $".httpd-test-{Guid.NewGuid():N}.conf");
+        try
+        {
+            var candidate = JsonSerializer.Deserialize<AppConfig>(JsonSerializer.Serialize(Config))!;
+            candidate.Apache.CustomDirectives = customDirectives;
+            new ApacheConfigWriter(RootDir, candidate)
+                .WriteHttpdConf(testConf, apacheDir, Path.Combine(RootDir, "www"), configDir);
+
+            var httpdExe = Path.Combine(apacheDir, "bin", "httpd.exe");
+            var (ok, output) = await RunCaptureAsync(httpdExe, $"-t -f \"{testConf}\"", apacheDir);
+            return (ok, output.Replace(testConf, "httpd.conf", StringComparison.OrdinalIgnoreCase).Trim());
+        }
+        catch (Exception ex)
+        {
+            return (false, ex.Message);
+        }
+        finally
+        {
+            try { File.Delete(testConf); } catch { /* a leftover test file is harmless */ }
+        }
+    }
+
     private static async Task<(bool ok, string output)> RunCaptureAsync(
-        string exe, string args, string workDir)
+        string exe, string args, string workDir, int timeoutMs = 30_000)
     {
         try
         {
@@ -968,7 +1003,19 @@ public class ServerManager : IDisposable
             // Read both streams concurrently to avoid deadlock when one buffer fills
             var errTask = p.StandardError.ReadToEndAsync();
             var stdTask = p.StandardOutput.ReadToEndAsync();
-            await p.WaitForExitAsync();
+            // A config test that never returns (a directive waiting on a network share, an
+            // antivirus hold on the binary) used to park the start sequence — and the gate it
+            // holds — forever.
+            using var timeout = new CancellationTokenSource(timeoutMs);
+            try
+            {
+                await p.WaitForExitAsync(timeout.Token);
+            }
+            catch (OperationCanceledException)
+            {
+                try { p.Kill(entireProcessTree: true); } catch { }
+                return (false, $"{Path.GetFileName(exe)} {args} did not finish within {timeoutMs / 1000} s.");
+            }
             return (p.ExitCode == 0, await errTask + await stdTask);
         }
         catch (Exception ex) { return (false, ex.Message); }
@@ -1376,16 +1423,47 @@ public class ServerManager : IDisposable
         else StopPhpMemoryWatchdog();
     }
 
-    public void SynchronizePhpIni()
+    /// <summary>
+    /// Regenerates php.ini for every installed runtime from <see cref="Config"/>.
+    /// <para>
+    /// Never throws. Every caller is an <c>async void</c> UI handler, where an exception — a php.ini
+    /// held open by an editor or an antivirus scan, a read-only folder — escaped as the generic crash
+    /// box and abandoned the restart sequence half-way. A runtime that cannot be written is logged and
+    /// skipped so the others still get the new profile.
+    /// </para>
+    /// </summary>
+    /// <returns><c>true</c> when every runtime was written.</returns>
+    public bool SynchronizePhpIni()
     {
         var configDir = Path.Combine(RootDir, "config");
         var phpBaseDir = Path.Combine(RootDir, "php");
-        if (!Directory.Exists(phpBaseDir)) return;
+        if (!Directory.Exists(phpBaseDir)) return true;
 
-        foreach (var phpDir in Directory.GetDirectories(phpBaseDir))
+        string[] runtimes;
+        try
         {
-            if (File.Exists(Path.Combine(phpDir, "php-cgi.exe")))
-                _configWriter.WritePhpIni(phpDir, configDir, forceRegenerate: true);
+            runtimes = Directory.GetDirectories(phpBaseDir);
         }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            Log($"[ERROR] Cannot list PHP runtimes in {phpBaseDir}: {ex.Message}");
+            return false;
+        }
+
+        bool allWritten = true;
+        foreach (var phpDir in runtimes)
+        {
+            if (!File.Exists(Path.Combine(phpDir, "php-cgi.exe"))) continue;
+            try
+            {
+                _configWriter.WritePhpIni(phpDir, configDir, forceRegenerate: true);
+            }
+            catch (Exception ex)
+            {
+                allWritten = false;
+                Log($"[ERROR] Cannot regenerate php.ini for PHP {Path.GetFileName(phpDir)}: {ex.Message}");
+            }
+        }
+        return allWritten;
     }
 }

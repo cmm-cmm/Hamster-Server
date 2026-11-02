@@ -1,31 +1,50 @@
 using System.Runtime.InteropServices;
-using System.Text;
-using System.Text.RegularExpressions;
 using HamsterServer.Core;
+using HamsterServer.Models;
 
 namespace HamsterServer.Forms;
 
+/// <summary>
+/// Quick PHP settings for the selected runtime, opened from the Services list.
+/// <para>
+/// Every value here is stored in <see cref="AppConfig"/> and php.ini is regenerated from it — the
+/// dialog never patches php.ini text. It used to, and that is why extension changes "did not
+/// stick": <see cref="ServerManager.SynchronizePhpIni"/> force-regenerates every runtime's php.ini
+/// from AppConfig after a settings save, a PHP version switch, a vhost change or a runtime install,
+/// so whatever this dialog had written into the file was silently replaced by the old selection.
+/// </para>
+/// </summary>
 public partial class PhpConfigForm : Form
 {
+    private readonly AppConfig _config;
     private readonly PhpVersionInfo _phpInfo;
-    private readonly ServerManager _server;
+    private readonly Func<bool, Task> _applyAsync;
     private readonly string _phpIniPath;
-    private readonly string _extDir;
 
-    private HashSet<string> _enabledExts = new(StringComparer.OrdinalIgnoreCase);
-    private List<string> _availableExts = [];
+    // The global selection, including names whose DLL this runtime lacks: one list serves every
+    // installed runtime, so an extension missing here must survive a save made from this dialog.
+    private readonly HashSet<string> _enabledExts;
+    private IReadOnlyList<string> _availableExts = [];
+    private bool _busy;
+
+    public bool ConfigChanged { get; private set; }
 
     [DllImport("user32.dll")]
     private static extern IntPtr SendMessage(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
     private const uint WM_SETREDRAW = 0x000B;
 
-    public PhpConfigForm(PhpVersionInfo phpInfo, ServerManager server)
+    /// <param name="applyAsync">
+    /// Persists the configuration and regenerates php.ini; the argument says whether a running PHP
+    /// should be restarted. The main form owns saving and restarting, as it does for every dialog.
+    /// </param>
+    public PhpConfigForm(AppConfig config, PhpVersionInfo phpInfo, Func<bool, Task> applyAsync)
     {
         InitializeComponent();
+        _config = config;
         _phpInfo = phpInfo;
-        _server = server;
+        _applyAsync = applyAsync;
         _phpIniPath = Path.Combine(phpInfo.DirectoryPath, "php.ini");
-        _extDir = Path.Combine(phpInfo.DirectoryPath, "ext");
+        _enabledExts = new HashSet<string>(config.Php.EnabledExtensions ?? [], StringComparer.OrdinalIgnoreCase);
 
         Text = $"PHP {phpInfo.Version} Configuration";
         lblPhpTitle.Text = $"PHP {phpInfo.Version} — {_phpIniPath}";
@@ -35,10 +54,67 @@ public partial class PhpConfigForm : Form
         // Amber, because this one bounces a running service.
         UiTheme.ApplyGlyph(btnPhpSaveRestart, UiTheme.Glyph.Refresh, UiTheme.StatusTransition);
 
-        LoadFromIni();
+        // display_errors = On corrupts FastCGI responses (output before headers), so the generated
+        // php.ini always writes Off. The row stays visible to say so instead of offering a switch.
+        chkDisplayErrors.Checked = false;
+        chkDisplayErrors.Enabled = false;
+
+        // InitializeComponent always creates `components`; the field is only declared nullable.
+        _tips = new ToolTip(components!) { AutoPopDelay = 8000, InitialDelay = 400 };
+        InitExtensionToolbar();
+        UiTheme.ApplyIconScaling(tsExtensions, tsIni);
+
+        cboTimezone.BeginUpdate();
+        cboTimezone.Items.AddRange([.. TimezoneCatalog.Build(config.Php.Timezone)]);
+        cboTimezone.EndUpdate();
+
+        cboTimezone.TextChanged += (_, _) => ValidateFields();
+        nudUploadMax.ValueChanged += (_, _) => ValidateFields();
+        nudPostMax.ValueChanged += (_, _) => ValidateFields();
+        nudMemoryLimit.ValueChanged += (_, _) => ValidateFields();
+        // A DPI change rescales the font; the column width is measured from it, so re-measure.
+        clbExtensions.FontChanged += (_, _) => LayoutExtensionColumns();
+
+        LoadFromConfig();
         LoadExtensions();
         LoadRawIni();
+        ValidateFields();
     }
+
+    // Owned by `components`, so the designer's Dispose takes it with the form.
+    private ToolTip? _tips;
+    private readonly ToolStripLabel _extInfo = new() { ForeColor = SystemColors.GrayText };
+
+    /// <summary>
+    /// The extension actions moved here from Settings when the two dialogs were merged: this is now
+    /// the only place the list is edited. Glyphs and colours are the ones Settings used.
+    /// </summary>
+    private void InitExtensionToolbar()
+    {
+        var recommended = new ToolStripButton("Recommended", UiTheme.CreateGlyph(UiTheme.Glyph.Star, UiTheme.AccentAction),
+            (_, _) => ApplyRecommendedExtensions())
+        {
+            ToolTipText = "Select the Hamster Server / XAMPP-compatible profile, verified to load in every bundled PHP build."
+        };
+        var checkAll = new ToolStripButton("Check all", UiTheme.CreateGlyph(UiTheme.Glyph.SelectAll, UiTheme.AccentAction),
+            (_, _) => SetVisibleExtensions(true))
+        {
+            ToolTipText = "Enable every extension shown (respects the filter). A broken DLL can stop PHP from starting."
+        };
+        var uncheckAll = new ToolStripButton("Uncheck all", UiTheme.CreateGlyph(UiTheme.Glyph.ClearSelection, UiTheme.AccentNeutral),
+            (_, _) => SetVisibleExtensions(false))
+        {
+            ToolTipText = "Disable every extension shown (respects the filter)."
+        };
+        foreach (var button in new[] { recommended, checkAll, uncheckAll })
+            button.DisplayStyle = ToolStripItemDisplayStyle.ImageAndText;
+
+        tsExtensions.Items.Add(new ToolStripSeparator());
+        tsExtensions.Items.AddRange(new ToolStripItem[] { recommended, checkAll, uncheckAll });
+        tsExtensions.Items.Add(new ToolStripSeparator());
+        tsExtensions.Items.Add(_extInfo);
+    }
+
 
     protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
     {
@@ -46,104 +122,155 @@ public partial class PhpConfigForm : Form
         return base.ProcessCmdKey(ref msg, keyData);
     }
 
+    protected override void OnFormClosing(FormClosingEventArgs e)
+    {
+        // Closing mid-restart would dispose the controls the continuation is about to touch.
+        if (_busy) { e.Cancel = true; return; }
+        base.OnFormClosing(e);
+    }
+
     // ─── Load ─────────────────────────────────────────────────────────────────
 
-    private void LoadFromIni()
+    private void LoadFromConfig()
     {
-        if (!File.Exists(_phpIniPath)) return;
-        var lines = File.ReadAllLines(_phpIniPath);
-        var kvRx = new Regex(@"^\s*(?<key>[a-zA-Z_.]+)\s*=\s*(?<val>.+?)\s*$");
-        var extRx = new Regex(@"^\s*extension\s*=\s*(?<name>[a-zA-Z0-9_]+)", RegexOptions.IgnoreCase);
+        var php = _config.Php;
+        SetClamped(nudMemoryLimit, php.MemoryLimit);
+        SetClamped(nudUploadMax, php.UploadMaxFilesize);
+        SetClamped(nudPostMax, php.PostMaxSize);
+        SetClamped(nudMaxExecTime, php.MaxExecutionTime);
+        chkShortOpenTag.Checked = php.ShortOpenTag;
+        cboTimezone.Text = php.Timezone;
 
-        _enabledExts.Clear();
-        foreach (var line in lines)
-        {
-            var m = extRx.Match(line);
-            if (m.Success && !line.TrimStart().StartsWith(';'))
-            {
-                _enabledExts.Add(m.Groups["name"].Value);
-                continue;
-            }
-
-            var kv = kvRx.Match(line);
-            if (!kv.Success || line.TrimStart().StartsWith(';')) continue;
-
-            var key = kv.Groups["key"].Value;
-            var val = kv.Groups["val"].Value.Trim('"');
-
-            switch (key.ToLowerInvariant())
-            {
-                case "memory_limit":
-                    if (int.TryParse(val.TrimEnd('m', 'M', 'g', 'G'), out int mem))
-                        nudMemoryLimit.Value = Math.Clamp(mem, (int)nudMemoryLimit.Minimum, (int)nudMemoryLimit.Maximum);
-                    break;
-                case "upload_max_filesize":
-                    if (int.TryParse(val.TrimEnd('m', 'M'), out int up))
-                        nudUploadMax.Value = Math.Clamp(up, (int)nudUploadMax.Minimum, (int)nudUploadMax.Maximum);
-                    break;
-                case "post_max_size":
-                    if (int.TryParse(val.TrimEnd('m', 'M'), out int pm))
-                        nudPostMax.Value = Math.Clamp(pm, (int)nudPostMax.Minimum, (int)nudPostMax.Maximum);
-                    break;
-                case "max_execution_time":
-                    if (int.TryParse(val, out int ex))
-                        nudMaxExecTime.Value = Math.Clamp(ex, (int)nudMaxExecTime.Minimum, (int)nudMaxExecTime.Maximum);
-                    break;
-                case "display_errors":
-                    chkDisplayErrors.Checked = val.Equals("On", StringComparison.OrdinalIgnoreCase) || val == "1";
-                    break;
-                case "short_open_tag":
-                    chkShortOpenTag.Checked = val.Equals("On", StringComparison.OrdinalIgnoreCase) || val == "1";
-                    break;
-                case "error_reporting":
-                    cmbErrorReporting.SelectedItem = val switch
-                    {
-                        "E_ALL" => "E_ALL (all errors)",
-                        "E_ALL & ~E_DEPRECATED & ~E_STRICT" => "E_ALL except deprecated",
-                        "E_ALL & ~E_NOTICE" => "E_ALL except notices",
-                        _ => "Custom"
-                    };
-                    if (cmbErrorReporting.SelectedIndex < 0) cmbErrorReporting.SelectedIndex = 0;
-                    break;
-                case "date.timezone":
-                    txtTimezone.Text = val;
-                    break;
-            }
-        }
+        int index = (int)php.ErrorReporting;
+        cmbErrorReporting.SelectedIndex = index >= 0 && index < cmbErrorReporting.Items.Count ? index : 0;
     }
+
+    private static void SetClamped(NumericUpDown nud, int value) =>
+        nud.Value = Math.Clamp(value, (int)nud.Minimum, (int)nud.Maximum);
 
     private void LoadExtensions()
     {
-        _availableExts = [];
-        if (Directory.Exists(_extDir))
-        {
-            _availableExts = Directory.GetFiles(_extDir, "*.dll")
-                .Select(f => Path.GetFileNameWithoutExtension(f))
-                .Where(n => n.StartsWith("php_", StringComparison.OrdinalIgnoreCase))
-                .Select(n => n[4..]) // strip "php_" prefix
-                .OrderBy(n => n, StringComparer.OrdinalIgnoreCase)
-                .ToList();
-        }
+        // Same discovery the php.ini writer uses: php_*.dll in this runtime's ext/, minus OPcache,
+        // which is a zend_extension and has its own switch in Settings. Listing it here once let a
+        // user write `extension = opcache`, which PHP rejects at startup.
+        _availableExts = PhpExtensionManager.GetAvailableExtensions(_phpInfo.DirectoryPath);
+        FillExtensionList(txtExtFilter.Text.Trim());
+    }
 
+    private void FillExtensionList(string filter)
+    {
         clbExtensions.BeginUpdate();
         try
         {
             clbExtensions.Items.Clear();
             foreach (var ext in _availableExts)
-                clbExtensions.Items.Add(ext, _enabledExts.Contains(ext));
+            {
+                if (filter.Length == 0 || ext.Contains(filter, StringComparison.OrdinalIgnoreCase))
+                    clbExtensions.Items.Add(ext, _enabledExts.Contains(ext));
+            }
         }
         finally { clbExtensions.EndUpdate(); }
+        LayoutExtensionColumns();
+        UpdateExtInfo();
+    }
+
+    /// <summary>
+    /// Sizes the columns to the widest name at the current font. <see cref="CheckedListBox.ColumnWidth"/>
+    /// is raw pixels and does not scale, and a MultiColumn list cannot be scrolled sideways with the
+    /// wheel — a clipped name past the right edge is effectively unreachable.
+    /// </summary>
+    private void LayoutExtensionColumns()
+    {
+        int widest = 0;
+        foreach (var ext in _availableExts)
+            widest = Math.Max(widest, TextRenderer.MeasureText(ext, clbExtensions.Font).Width);
+        if (widest > 0)
+            clbExtensions.ColumnWidth = widest + clbExtensions.ItemHeight + 12;
+    }
+
+    private void UpdateExtInfo()
+    {
+        if (_availableExts.Count == 0)
+        {
+            _extInfo.Text = "No ext/ folder in this runtime";
+            return;
+        }
+        var available = _availableExts.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        int enabledHere = _enabledExts.Count(available.Contains);
+        int elsewhere = _enabledExts.Count(name => !available.Contains(name));
+        _extInfo.Text = elsewhere > 0
+            ? $"{enabledHere} of {_availableExts.Count} enabled · {elsewhere} kept for other runtimes"
+            : $"{enabledHere} of {_availableExts.Count} enabled · shared by every runtime";
+    }
+
+    // The profile is verified to load in every bundled build, so it replaces the whole selection —
+    // including names this runtime lacks — rather than only the rows on screen.
+    private void ApplyRecommendedExtensions()
+    {
+        _enabledExts.Clear();
+        _enabledExts.UnionWith(PhpExtensionManager.RecommendedExtensions);
+        FillExtensionList(txtExtFilter.Text.Trim());
+    }
+
+    // Acts on the rows the filter shows, so "filter: pdo → Check all" means what it looks like.
+    private void SetVisibleExtensions(bool enabled)
+    {
+        foreach (string ext in clbExtensions.Items)
+        {
+            if (enabled) _enabledExts.Add(ext);
+            else _enabledExts.Remove(ext);
+        }
+        FillExtensionList(txtExtFilter.Text.Trim());
     }
 
     private void LoadRawIni()
     {
-        if (!File.Exists(_phpIniPath))
+        try
         {
-            rtbPhpIni.Text = "(php.ini not found — start PHP once to generate it)";
-            return;
+            if (!File.Exists(_phpIniPath))
+            {
+                rtbPhpIni.Text = "(php.ini not found — save here or start PHP once to generate it)";
+                return;
+            }
+            rtbPhpIni.Text = File.ReadAllText(_phpIniPath);
+            ApplySyntaxHighlight(rtbPhpIni);
         }
-        rtbPhpIni.Text = File.ReadAllText(_phpIniPath);
-        ApplySyntaxHighlight(rtbPhpIni);
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            rtbPhpIni.Text = $"(php.ini could not be read: {ex.Message})";
+        }
+    }
+
+    // ─── Validation ───────────────────────────────────────────────────────────
+
+    private bool ValidateFields()
+    {
+        // Same character rule ConfigManager.Normalize enforces; checking it here means an invalid
+        // zone is refused with a visible reason instead of silently reset to the default on save.
+        bool timezoneOk = TimezoneCatalog.IsValid(cboTimezone.Text);
+        cboTimezone.BackColor = timezoneOk ? UiTheme.FieldNormal : UiTheme.FieldError;
+
+        // PHP checks post_max_size first, so an upload bigger than it never reaches
+        // upload_max_filesize — the request arrives with empty $_POST and $_FILES instead.
+        bool postTooSmall = nudPostMax.Value < nudUploadMax.Value;
+        nudPostMax.BackColor = postTooSmall ? UiTheme.FieldWarning : UiTheme.FieldNormal;
+        _tips?.SetToolTip(nudPostMax, postTooSmall
+            ? "Smaller than the upload limit: an upload above this arrives with empty $_POST and $_FILES."
+            : "post_max_size — must be at least the upload limit.");
+
+        // Moved here from Settings with memory_limit itself: every worker may use this much, so the
+        // worst case is workers × memory_limit, measured against the 70 % ServerManager warns at.
+        long totalRamMb = (long)(GC.GetGCMemoryInfo().TotalAvailableMemoryBytes / 1024 / 1024);
+        long projectedMb = (long)_config.Php.Workers * (long)nudMemoryLimit.Value;
+        bool overcommitted = totalRamMb > 0 && projectedMb > totalRamMb * 0.70;
+        nudMemoryLimit.BackColor = overcommitted ? UiTheme.FieldWarning : UiTheme.FieldNormal;
+        _tips?.SetToolTip(nudMemoryLimit, overcommitted
+            ? $"{_config.Php.Workers} workers × {nudMemoryLimit.Value} MB = {projectedMb} MB worst case, " +
+              $"against ~{totalRamMb} MB available. Lower this or the worker count in Settings."
+            : "memory_limit — the most one PHP request may allocate.");
+
+        btnPhpSave.Enabled = btnPhpSaveRestart.Enabled = timezoneOk && !_busy;
+        return timezoneOk;
     }
 
     // ─── Syntax highlight ─────────────────────────────────────────────────────
@@ -225,29 +352,18 @@ public partial class PhpConfigForm : Form
 
     // ─── Extension filter ─────────────────────────────────────────────────────
 
-    private void txtExtFilter_TextChanged(object sender, EventArgs e)
-    {
-        var filter = txtExtFilter.Text.Trim();
-        clbExtensions.BeginUpdate();
-        try
-        {
-            clbExtensions.Items.Clear();
-            foreach (var ext in _availableExts)
-            {
-                if (string.IsNullOrWhiteSpace(filter) || ext.Contains(filter, StringComparison.OrdinalIgnoreCase))
-                    clbExtensions.Items.Add(ext, _enabledExts.Contains(ext));
-            }
-        }
-        finally { clbExtensions.EndUpdate(); }
-    }
+    private void txtExtFilter_TextChanged(object sender, EventArgs e) =>
+        FillExtensionList(txtExtFilter.Text.Trim());
 
+    // ItemCheck also fires while FillExtensionList re-adds checked rows; adding a name that is
+    // already in the set is a no-op, so the filter never changes the selection.
     private void clbExtensions_ItemCheck(object sender, ItemCheckEventArgs e)
     {
-        var ext = clbExtensions.Items[e.Index]?.ToString() ?? "";
-        if (e.NewValue == CheckState.Checked)
-            _enabledExts.Add(ext);
-        else
-            _enabledExts.Remove(ext);
+        var ext = clbExtensions.Items[e.Index]?.ToString();
+        if (string.IsNullOrEmpty(ext)) return;
+        if (e.NewValue == CheckState.Checked) _enabledExts.Add(ext);
+        else _enabledExts.Remove(ext);
+        UpdateExtInfo();
     }
 
     // ─── Reload raw ───────────────────────────────────────────────────────────
@@ -256,87 +372,79 @@ public partial class PhpConfigForm : Form
 
     // ─── Save ─────────────────────────────────────────────────────────────────
 
-    private async void btnPhpSaveRestart_Click(object sender, EventArgs e)
-    {
-        SaveToIni();
-        if (_server.IsPhpRunning)
-        {
-            btnPhpSaveRestart.Enabled = false;
-            try
-            {
-                await _server.StopPhpAsync();
-                await _server.StartPhpAsync();
-            }
-            finally
-            {
-                if (!IsDisposed) btnPhpSaveRestart.Enabled = true;
-            }
-        }
-        if (IsDisposed) return;   // the dialog may have been closed during the restart
-        LoadRawIni();
-    }
+    private async void btnPhpSaveRestart_Click(object sender, EventArgs e) => await SaveAsync(restart: true);
 
-    private void btnPhpSave_Click(object sender, EventArgs e)
-    {
-        SaveToIni();
-        LoadRawIni();
-    }
+    private async void btnPhpSave_Click(object sender, EventArgs e) => await SaveAsync(restart: false);
 
     private void btnPhpCancel_Click(object sender, EventArgs e) => Close();
 
-    private void SaveToIni()
+    private async Task SaveAsync(bool restart)
     {
-        if (!File.Exists(_phpIniPath))
+        if (_busy || !ValidateFields()) return;
+
+        bool changed = ApplyToConfig();
+        if (!changed && !restart)
         {
-            MessageBox.Show("php.ini not found. Start PHP once to generate it.", "Hamster Server",
-                MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            LoadRawIni();
             return;
         }
 
-        var content = File.ReadAllText(_phpIniPath);
-
-        content = SetIniValue(content, "memory_limit", $"{(int)nudMemoryLimit.Value}M");
-        content = SetIniValue(content, "upload_max_filesize", $"{(int)nudUploadMax.Value}M");
-        content = SetIniValue(content, "post_max_size", $"{(int)nudPostMax.Value}M");
-        content = SetIniValue(content, "max_execution_time", $"{(int)nudMaxExecTime.Value}");
-        content = SetIniValue(content, "max_input_time", $"{(int)nudMaxExecTime.Value}");
-        content = SetIniValue(content, "display_errors", chkDisplayErrors.Checked ? "On" : "Off");
-        content = SetIniValue(content, "short_open_tag", chkShortOpenTag.Checked ? "On" : "Off");
-        content = SetIniValue(content, "date.timezone", txtTimezone.Text.Trim());
-
-        var errReporting = cmbErrorReporting.SelectedItem?.ToString() switch
+        _busy = true;
+        ValidateFields();
+        UseWaitCursor = true;
+        try
         {
-            "E_ALL (all errors)" => "E_ALL",
-            "E_ALL except deprecated" => "E_ALL & ~E_DEPRECATED & ~E_STRICT",
-            "E_ALL except notices" => "E_ALL & ~E_NOTICE",
-            _ => "E_ALL"
-        };
-        content = SetIniValue(content, "error_reporting", errReporting);
-
-        // Remove all existing extension= lines (active and commented)
-        content = Regex.Replace(content, @"^\s*;?\s*extension\s*=.*$\r?\n?", "",
-            RegexOptions.Multiline | RegexOptions.IgnoreCase);
-
-        // Append managed extension block
-        var sb = new StringBuilder(content.TrimEnd());
-        sb.AppendLine();
-        sb.AppendLine();
-        sb.AppendLine("; Extensions managed by Hamster Server");
-        foreach (var ext in _availableExts.OrderBy(e => e, StringComparer.OrdinalIgnoreCase))
-        {
-            if (_enabledExts.Contains(ext))
-                sb.AppendLine($"extension = {ext}");
+            ConfigChanged |= changed;
+            await _applyAsync(restart);
         }
-
-        File.WriteAllText(_phpIniPath, sb.ToString(), Encoding.UTF8);
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, $"Could not apply PHP settings:\n{ex.Message}", "Hamster Server",
+                MessageBoxButtons.OK, MessageBoxIcon.Warning);
+        }
+        finally
+        {
+            _busy = false;
+            if (!IsDisposed)
+            {
+                UseWaitCursor = false;
+                ValidateFields();
+                LoadRawIni();
+            }
+        }
     }
 
-    private static string SetIniValue(string content, string key, string value)
+    /// <summary>Copies the dialog into <see cref="AppConfig"/>; returns whether anything changed.</summary>
+    private bool ApplyToConfig()
     {
-        var rx = new Regex($@"^(\s*){Regex.Escape(key)}\s*=.*$", RegexOptions.Multiline | RegexOptions.IgnoreCase);
-        var newLine = $"{key.PadRight(25)}= {value}";
-        if (rx.IsMatch(content))
-            return rx.Replace(content, newLine);
-        return content.TrimEnd() + Environment.NewLine + newLine + Environment.NewLine;
+        var php = _config.Php;
+        var extensions = _enabledExts
+            .Where(name => !name.Equals(PhpExtensionManager.Opcache, StringComparison.OrdinalIgnoreCase))
+            .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        var errorReporting = (PhpErrorReporting)Math.Max(0, cmbErrorReporting.SelectedIndex);
+        var timezone = cboTimezone.Text.Trim();
+
+        bool changed =
+            php.MemoryLimit != (int)nudMemoryLimit.Value ||
+            php.UploadMaxFilesize != (int)nudUploadMax.Value ||
+            php.PostMaxSize != (int)nudPostMax.Value ||
+            php.MaxExecutionTime != (int)nudMaxExecTime.Value ||
+            php.ShortOpenTag != chkShortOpenTag.Checked ||
+            php.ErrorReporting != errorReporting ||
+            !string.Equals(php.Timezone, timezone, StringComparison.Ordinal) ||
+            !(php.EnabledExtensions ?? []).ToHashSet(StringComparer.OrdinalIgnoreCase).SetEquals(extensions);
+
+        if (!changed) return false;
+
+        php.MemoryLimit = (int)nudMemoryLimit.Value;
+        php.UploadMaxFilesize = (int)nudUploadMax.Value;
+        php.PostMaxSize = (int)nudPostMax.Value;
+        php.MaxExecutionTime = (int)nudMaxExecTime.Value;
+        php.ShortOpenTag = chkShortOpenTag.Checked;
+        php.ErrorReporting = errorReporting;
+        php.Timezone = timezone;
+        php.EnabledExtensions = extensions;
+        return true;
     }
 }

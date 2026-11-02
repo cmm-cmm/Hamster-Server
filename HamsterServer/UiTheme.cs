@@ -85,6 +85,48 @@ internal static class UiTheme
     // Windows ships an icon font; drawing its glyphs into a bitmap gives crisp, correctly
     // shaped icons we can tint per meaning, without hand-painting any control.
 
+    /// <summary>
+    /// Device-pixel size every glyph and status dot is rendered at: 16 px at 100 %, scaled with the
+    /// primary monitor's DPI and snapped to an even number so the icon font's strokes stay on pixel
+    /// boundaries (16 / 20 / 24 / 28 / 32 …).
+    /// <para>
+    /// The bitmaps used to be a fixed 16 px. Under PerMonitorV2 a ToolStrip scales its
+    /// <c>ImageScalingSize</c> with the DPI, so at 200 % it stretched those 16 px glyphs to 32 —
+    /// blurry — and plain Buttons and ImageLists simply showed them half-size next to doubled text.
+    /// </para>
+    /// <para>
+    /// Measured once, at startup: moving the window to a monitor with another scale keeps these
+    /// sizes and lets Windows resample, which is the same trade-off every other WinForms icon makes.
+    /// </para>
+    /// </summary>
+    public static int IconSize { get; } = ComputeIconSize();
+
+    private static int ComputeIconSize()
+    {
+        float dpi = 96F;
+        try
+        {
+            using var screen = Graphics.FromHwnd(IntPtr.Zero);
+            dpi = screen.DpiX;
+        }
+        catch { /* no desktop (service session, test host): keep 100 % */ }
+
+        int size = (int)Math.Round(16 * dpi / 96F / 2F) * 2;
+        return Math.Clamp(size, 16, 64);
+    }
+
+    /// <summary>The <see cref="IconSize"/> square, for ImageList.ImageSize and ToolStrip.ImageScalingSize.</summary>
+    public static Size IconBox => new(IconSize, IconSize);
+
+    /// <summary>
+    /// Makes tool strips show the glyphs at the size they were rendered, instead of resampling
+    /// them to a DPI-scaled 16 px box.
+    /// </summary>
+    public static void ApplyIconScaling(params ToolStrip[] strips)
+    {
+        foreach (var strip in strips) strip.ImageScalingSize = IconBox;
+    }
+
     /// <summary>Glyph codepoints from Segoe Fluent Icons / Segoe MDL2 Assets.</summary>
     public static class Glyph
     {
@@ -158,16 +200,21 @@ internal static class UiTheme
     }
 
     /// <summary>A filled status dot — used where the meaning is a state, not an action.</summary>
-    public static Bitmap CreateStatusDot(Color fill, int size = 16)
+    /// <param name="size">Device pixels; <c>0</c> (the default) means <see cref="IconSize"/>.</param>
+    public static Bitmap CreateStatusDot(Color fill, int size = 0)
     {
+        if (size <= 0) size = IconSize;
         var bmp = new Bitmap(size, size);
         using var g = Graphics.FromImage(bmp);
         g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
 
-        int d = Math.Max(6, size - 6);
+        // Proportions of the original 16 px dot (3 px inset each side, 1 px outline), kept at
+        // every size so a 32 px dot reads as the same mark rather than a bigger blob.
+        int inset = Math.Max(3, size * 3 / 16);
+        int d = Math.Max(6, size - 2 * inset);
         int off = (size - d) / 2;
         using var brush = new SolidBrush(fill);
-        using var pen = new Pen(ControlPaint.Dark(fill, 0.15f));
+        using var pen = new Pen(ControlPaint.Dark(fill, 0.15f), Math.Max(1F, size / 16F));
         g.FillEllipse(brush, off, off, d, d);
         g.DrawEllipse(pen, off, off, d, d);
         return bmp;
@@ -177,8 +224,10 @@ internal static class UiTheme
     /// An icon-font glyph tinted <paramref name="color"/>. Falls back to a status dot when the
     /// icon font is unavailable, so the image list keeps its indices either way.
     /// </summary>
-    public static Bitmap CreateGlyph(string glyph, Color color, int size = 16)
+    /// <param name="size">Device pixels; <c>0</c> (the default) means <see cref="IconSize"/>.</param>
+    public static Bitmap CreateGlyph(string glyph, Color color, int size = 0)
     {
+        if (size <= 0) size = IconSize;
         if (IconFontName is null) return CreateStatusDot(color, size);
 
         var bmp = new Bitmap(size, size);

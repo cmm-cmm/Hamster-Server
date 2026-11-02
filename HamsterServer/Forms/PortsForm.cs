@@ -51,7 +51,7 @@ public partial class PortsForm : Form
     /// </summary>
     private void InitIcons()
     {
-        _portIcons = new ImageList(components) { ImageSize = new Size(16, 16), ColorDepth = ColorDepth.Depth32Bit };
+        _portIcons = new ImageList(components) { ImageSize = UiTheme.IconBox, ColorDepth = ColorDepth.Depth32Bit };
         _portIcons.Images.Add(UiTheme.CreateGlyph(UiTheme.Glyph.Unlock, UiTheme.AccentHttp));
         _portIcons.Images.Add(UiTheme.CreateGlyph(UiTheme.Glyph.Lock, UiTheme.AccentHttps));
         _portIcons.Images.Add(UiTheme.CreateGlyph(UiTheme.Glyph.Unlock, UiTheme.StatusStopped));
@@ -63,6 +63,11 @@ public partial class PortsForm : Form
         btnRemove.Image = UiTheme.CreateGlyph(UiTheme.Glyph.Delete, UiTheme.StatusError);
         foreach (var b in new[] { btnAdd, btnEdit, btnRemove })
             b.DisplayStyle = ToolStripItemDisplayStyle.ImageAndText;
+
+        // The right-click menu repeats the toolbar's Edit / Remove, so it carries the same glyphs.
+        ctxEdit.Image = UiTheme.CreateGlyph(UiTheme.Glyph.Edit, UiTheme.AccentAction);
+        ctxRemove.Image = UiTheme.CreateGlyph(UiTheme.Glyph.Delete, UiTheme.StatusError);
+        UiTheme.ApplyIconScaling(toolStrip, ctxPorts, statusStrip);
     }
 
     private static int PortIcon(bool enabled, bool isSsl) =>
