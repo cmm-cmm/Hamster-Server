@@ -35,6 +35,21 @@ public enum PhpErrorReporting
     NoNotices = 3
 }
 
+/// <summary>
+/// What Hamster Server does when php.net publishes a newer patch of the PHP branch in use.
+/// Append new values; never reorder, the JSON converter accepts numeric values too.
+/// </summary>
+[JsonConverter(typeof(JsonStringEnumConverter))]
+public enum PhpUpdateMode
+{
+    /// <summary>Install the patch side-by-side, carry the extensions over, switch once PHP is idle.</summary>
+    Auto = 0,
+    /// <summary>Only report it (status bar, tray, PHP Version Manager).</summary>
+    Notify = 1,
+    /// <summary>Never contact php.net on its own.</summary>
+    Off = 2
+}
+
 public class AppConfig
 {
     [JsonPropertyName("serverMode")]
@@ -182,6 +197,13 @@ public class PhpSettings
 
     [JsonPropertyName("useBundledCaCertificate")]
     public bool UseBundledCaCertificate { get; set; } = true;
+
+    /// <summary>
+    /// Patch updates within the current major.minor branch only — moving to another branch changes
+    /// the extension ABI and stays a manual choice. See <c>PhpUpdateService</c>.
+    /// </summary>
+    [JsonPropertyName("updateMode")]
+    public PhpUpdateMode UpdateMode { get; set; } = PhpUpdateMode.Auto;
 
     /// <summary>
     /// Danh sách extension được enable trong php.ini.

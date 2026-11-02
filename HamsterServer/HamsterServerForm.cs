@@ -15,6 +15,10 @@ public partial class HamsterServerForm : Form
     private readonly string _rootDir;
     private readonly ConfigManager _configMgr;
     private readonly PhpVersionManager _phpMgr;
+    private PhpUpdateService _phpUpdates = null!;
+    private System.Windows.Forms.Timer _phpUpdateTimer = null!;
+    private readonly CancellationTokenSource _appCancellation = new();
+    private string? _announcedPhpUpdate;
     private ServerManager _server = null!;
     private LogWriter _logWriter = null!;
     private NotifyIcon _tray = null!;
@@ -91,6 +95,12 @@ public partial class HamsterServerForm : Form
         _server = new ServerManager(_rootDir, _configMgr.Config);
         _server.LogReceived += OnLog;
         _server.StatusChanged += OnStatusChanged;
+
+        _phpUpdates = new PhpUpdateService(_phpMgr, _server);
+        _phpUpdates.LogReceived += OnLog;
+        _phpUpdates.StateChanged += (_, _) => UpdatePhpUpdateIndicator();
+        _phpUpdates.Updated += OnPhpUpdated;
+        InitPhpUpdateTimer();
 
         InitTray();
         // After InitTray: the tray menu items are created there, and every glyph — tray included —
@@ -275,6 +285,9 @@ public partial class HamsterServerForm : Form
         SetIcon(_trayStopAll, UiTheme.Glyph.Stop, UiTheme.StatusError);
         SetIcon(_trayBrowser, UiTheme.Glyph.World, UiTheme.AccentHttp);
         SetIcon(_trayExit, UiTheme.Glyph.Exit, UiTheme.StatusError);
+
+        // Status-bar notice of a PHP patch — amber, like every other "something to act on" signal.
+        SetIcon(lblStatusPhpUpdate, UiTheme.Glyph.Download, UiTheme.StatusTransition);
 
         // Show the glyphs at the size they were rendered for this DPI instead of resampling them.
         UiTheme.ApplyIconScaling(menuStrip, toolStrip, statusStrip, ctxServices, tsLog, _trayMenu);
@@ -831,18 +844,103 @@ public partial class HamsterServerForm : Form
         }
     }
 
-    private void btnPhpVersions_Click(object sender, EventArgs e)
+    private async void btnPhpVersions_Click(object sender, EventArgs e)
     {
-        using var form = new PhpVersionManagerForm(
-            _phpMgr, _configMgr.Config.Php.CurrentVersion);
+        using var form = new PhpVersionManagerForm(_phpMgr, _configMgr.Config, _phpUpdates, SwitchPhpFromManagerAsync);
         form.ShowDialog(this);
-        if (!form.VersionsChanged) return;
+
+        if (form.ConfigChanged)
+        {
+            await TrySaveConfigAsync();
+            UpdatePhpUpdateIndicator();
+            // Turning updates on (or to Auto) should act now, not at the next six-hourly tick.
+            if (_configMgr.Config.Php.UpdateMode != PhpUpdateMode.Off) await RunPhpUpdateCheckAsync();
+        }
+        if (!form.VersionsChanged && !form.RuntimeFilesChanged) return;
 
         PopulatePhpVersions();
-        if (form.VersionInstalled)
+        if (form.RuntimeFilesChanged)
             _server.SynchronizePhpIni();
         RefreshUI();
         LogDirect($"[{DateTime.Now:HH:mm:ss}] PHP runtime list updated.");
+    }
+
+    /// <summary>"Use this version" in the manager: the same switch as the combo, then persisted.</summary>
+    private async Task SwitchPhpFromManagerAsync(string version)
+    {
+        await _server.SwitchPhpVersionAsync(version);
+        await TrySaveConfigAsync();
+        PopulatePhpVersions();
+        RefreshUI();
+    }
+
+    // ─── PHP patch updates ────────────────────────────────────────────────────
+
+    // First check a minute after start-up — not during it, when the user is waiting for the stack —
+    // then every six hours for as long as the app runs.
+    private void InitPhpUpdateTimer()
+    {
+        _phpUpdateTimer = new System.Windows.Forms.Timer { Interval = 60_000 };
+        _phpUpdateTimer.Tick += async (_, _) =>
+        {
+            _phpUpdateTimer.Interval = (int)TimeSpan.FromHours(6).TotalMilliseconds;
+            await RunPhpUpdateCheckAsync();
+        };
+        _phpUpdateTimer.Start();
+    }
+
+    private async Task RunPhpUpdateCheckAsync()
+    {
+        try
+        {
+            await _phpUpdates.CheckAsync(_configMgr.Config.Php.UpdateMode, _appCancellation.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            // The app is closing.
+        }
+    }
+
+    private void UpdatePhpUpdateIndicator()
+    {
+        if (_isExiting || IsDisposed) return;
+        var version = _phpUpdates.AvailableUpdate?.Version;
+        (bool visible, string text) = _phpUpdates.State switch
+        {
+            PhpUpdateState.UpdateAvailable when version is not null => (true, $"PHP {version} available"),
+            PhpUpdateState.Installing => (true, $"Installing PHP {version}…"),
+            PhpUpdateState.WaitingToSwitch => (true, $"PHP {version} ready, switching when idle"),
+            _ => (false, "")
+        };
+        lblStatusPhpUpdate.Visible = visible;
+        lblStatusPhpUpdate.Text = text;
+        lblStatusPhpUpdate.ToolTipText = visible ? "Open the PHP Version Manager" : "";
+
+        // One balloon per version in Notify mode; Auto announces the result instead (OnPhpUpdated).
+        if (_phpUpdates.State == PhpUpdateState.UpdateAvailable && version is not null &&
+            _configMgr.Config.Php.UpdateMode == PhpUpdateMode.Notify &&
+            !string.Equals(_announcedPhpUpdate, version, StringComparison.OrdinalIgnoreCase))
+        {
+            _announcedPhpUpdate = version;
+            _tray.ShowBalloonTip(5000, "Hamster Server",
+                $"PHP {version} is available. Open the PHP Version Manager to install it.", ToolTipIcon.Info);
+        }
+    }
+
+    private async void OnPhpUpdated(object? sender, PhpUpdatedEventArgs e)
+    {
+        if (_isExiting || IsDisposed) return;
+        await TrySaveConfigAsync();
+        PopulatePhpVersions();
+        RefreshUI();
+        UpdatePhpUpdateIndicator();
+        if (e.Switched)
+        {
+            string carried = e.CopiedFiles.Count == 0
+                ? ""
+                : $" {e.CopiedFiles.Count} extension file(s) carried over.";
+            _tray.ShowBalloonTip(5000, "Hamster Server", $"PHP updated {e.FromVersion} → {e.ToVersion}.{carried}", ToolTipIcon.Info);
+        }
     }
 
     // Every dialog that mutates AppConfig persists it through here. Without the catch a failed
@@ -1087,6 +1185,8 @@ public partial class HamsterServerForm : Form
     {
         if (_isExiting) return;
         _healthTimer.Stop();
+        _phpUpdateTimer.Stop();
+        _appCancellation.Cancel();   // abandons a download or a wait-for-idle; staging folders clean themselves up
         _logTimer.Stop();
         FlushLogQueue();        // drain whatever is still queued while the UI is alive
         _isExiting = true;
