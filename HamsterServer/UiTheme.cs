@@ -35,7 +35,12 @@ internal static class UiTheme
     public static readonly Color LogWarn = StatusTransition;
     public static readonly Color LogError = StatusError;
     public static readonly Color LogTimestamp = SystemColors.GrayText;
-    public static readonly Color LogApache = Color.FromArgb(0, 90, 180);
+    // Apache had shared #005AB4 with AccentAction / AccentHttp, so "Apache" and "a neutral action"
+    // looked the same in the Tools menu. #9C2777 was picked by measurement, not taste: 7.1:1 on
+    // white (log text), and the largest worst-case CIE76 ΔE (13) to every other token here under
+    // normal vision and simulated protan / deutan / tritan vision among 14 candidates — the teal
+    // #00796B first proposed came out at ΔE 4 against StatusStopped for red-green deficiencies.
+    public static readonly Color LogApache = Color.FromArgb(156, 39, 119);
     public static readonly Color LogPhp = Color.FromArgb(112, 48, 160);
     public static readonly Color LogLink = Color.FromArgb(0, 102, 204);
 
@@ -127,39 +132,63 @@ internal static class UiTheme
         foreach (var strip in strips) strip.ImageScalingSize = IconBox;
     }
 
-    /// <summary>Glyph codepoints from Segoe Fluent Icons / Segoe MDL2 Assets.</summary>
+    /// <summary>
+    /// The icon set, as SVG path data on a 24 \u00D7 24 grid: 2 px safe margin, 1.5 px stroke, round caps
+    /// and joins, never filled. <see cref="CreateGlyph"/> strokes them in the colour of their meaning.
+    /// <para>
+    /// These replaced the Segoe Fluent Icons / Segoe MDL2 Assets codepoints: the set no longer
+    /// depends on which icon font the machine has (Windows 10 lacks Fluent, Server Core lacks both,
+    /// and the old fallback turned every icon into the same dot), and each glyph can be adjusted.
+    /// The design sheet that defines them is described in doc/ICONS_AND_LOGO.md. A dot is drawn as a
+    /// near-zero segment (<c>h.01</c>) that the round cap turns into a circle.
+    /// </para>
+    /// </summary>
     public static class Glyph
     {
-        public const string Play = "\uE768";
-        public const string Stop = "\uE71A";
-        public const string Refresh = "\uE72C";
-        public const string Settings = "\uE713";
-        public const string World = "\uE774";
-        public const string Folder = "\uE8B7";
-        public const string Server = "\uE839";
-        public const string Add = "\uE710";
-        public const string Edit = "\uE70F";
-        public const string Delete = "\uE74D";
-        public const string Lock = "\uE72E";
-        public const string Unlock = "\uE785";
-        public const string Clear = "\uE894";
-        public const string Warning = "\uE7BA";
-        public const string Link = "\uE71B";
-        public const string Minimize = "\uE921";
-        public const string Exit = "\uE7E8";
-        public const string Info = "\uE946";
-        public const string Download = "\uE896";
-        public const string Code = "\uE943";
-        public const string Page = "\uE7C3";
+        public const string Play = "M8 5.5v13l10.5-6.5z";
+        public const string Stop = "M6.5 6.5h11v11h-11z";
+        public const string Refresh = "M19.5 12a7.5 7.5 0 1 1-2.2-5.3 M19.5 4v4.5H15";
+        public const string Settings =
+            "M12 9.2a2.8 2.8 0 1 0 0 5.6a2.8 2.8 0 1 0 0-5.6z M12 5.5a6.5 6.5 0 1 0 0 13a6.5 6.5 0 1 0 0-13z " +
+            "M12 2.8v2.7 M12 18.5v2.7 M2.8 12h2.7 M18.5 12h2.7 M5.5 5.5l1.9 1.9 M16.6 16.6l1.9 1.9 " +
+            "M5.5 18.5l1.9-1.9 M16.6 7.4l1.9-1.9";
+        public const string World =
+            "M12 3.5a8.5 8.5 0 1 0 0 17a8.5 8.5 0 1 0 0-17z M3.5 12h17 " +
+            "M12 3.5c2.5 2.3 3.5 5.3 3.5 8.5s-1 6.2-3.5 8.5 M12 3.5c-2.5 2.3-3.5 5.3-3.5 8.5s1 6.2 3.5 8.5";
+        public const string Folder =
+            "M3.5 7a1.5 1.5 0 0 1 1.5-1.5h4l2 2h8a1.5 1.5 0 0 1 1.5 1.5v8.5a1.5 1.5 0 0 1-1.5 1.5H5a1.5 1.5 0 0 1-1.5-1.5z";
+        public const string Server =
+            "M4.5 4.5h15v6h-15z M4.5 13.5h15v6h-15z M7.5 7.5h4 M7.5 16.5h4 M16 7.5h.01 M16 16.5h.01";
+        public const string Add = "M12 5v14 M5 12h14";
+        public const string Edit = "M15.5 4.5l4 4L9 19H5v-4z M13.5 6.5l4 4";
+        public const string Delete = "M5 7h14 M9.5 7V4.5h5V7 M7 7l.8 12.5h8.4L17 7 M10.5 10.5v6 M13.5 10.5v6";
+        public const string Lock = "M6.5 11h11v8.5h-11z M8.5 11V8a3.5 3.5 0 0 1 7 0v3";
+        public const string Unlock = "M6.5 11h11v8.5h-11z M8.5 11V8a3.5 3.5 0 0 1 6.8-1.2";
+        public const string Clear = "M4 6.5h10 M4 10.5h10 M4 14.5h6 M14.5 14.5l5 5 M19.5 14.5l-5 5";
+        public const string Warning = "M12 4l9 16H3z M12 10v4.5 M12 17.5h.01";
+        public const string Link =
+            "M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1 M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1";
+        public const string Minimize = "M5 13h14";
+        public const string Exit = "M12 3.5v8 M7.2 6.3a7.5 7.5 0 1 0 9.6 0";
+        public const string Info = "M12 3.5a8.5 8.5 0 1 0 0 17a8.5 8.5 0 1 0 0-17z M12 11v5.5 M12 7.8h.01";
+        public const string Download = "M12 4v11 M7.5 10.5L12 15l4.5-4.5 M5 19.5h14";
+        public const string Code = "M8.5 7l-5 5 5 5 M15.5 7l5 5-5 5 M13.5 5l-3 14";
+        public const string Page = "M6.5 3.5h7l4 4v13h-11z M13.5 3.5v4h4 M9 12h6 M9 15.5h6";
         // Two opposed arrows: a port is where traffic goes in and out. Deliberately not Server \u2014
         // that one belongs to Apache itself, and sharing it made the two menus look alike.
-        public const string Ports = "\uE8AB";
-        public const string Accept = "\uE8FB";
-        public const string Star = "\uE734";
-        public const string SelectAll = "\uE8B3";
-        public const string ClearSelection = "\uE8E6";
-        public const string Wrench = "\uE90F";
+        public const string Ports = "M4 9h14 M14.5 5.5L18 9l-3.5 3.5 M20 15H6 M9.5 11.5L6 15l3.5 3.5";
+        public const string Accept = "M5 12.5l4.5 4.5L19 7.5";
+        public const string Star = "M12 3.8l2.5 5.2 5.7.8-4.1 4 1 5.7L12 16.8l-5.1 2.7 1-5.7-4.1-4 5.7-.8z";
+        public const string SelectAll =
+            "M4 6.5l1.5 1.5 3-3 M11 6.5h9 M4 12.5l1.5 1.5 3-3 M11 12.5h9 M4 18.5l1.5 1.5 3-3 M11 18.5h9";
+        public const string ClearSelection = "M4.5 4.5h5v5h-5z M4.5 14.5h5v5h-5z M12.5 7h7 M12.5 17h7";
+        public const string Wrench =
+            "M15 4.5a4.5 4.5 0 0 0-4.2 6.1l-6.3 6.3a1.8 1.8 0 0 0 2.6 2.6l6.3-6.3a4.5 4.5 0 0 0 6.1-4.2" +
+            "l-2.7 2.7-2.6-.9-.9-2.6 2.7-2.7a4.5 4.5 0 0 0-1-1z";
     }
+
+    /// <summary>Stroke width of every glyph, in units of the 24 px design grid.</summary>
+    public const float GlyphStroke = 1.5F;
 
     /// <summary>
     /// Puts a glyph on a plain <see cref="Button"/>. AutoSize is normally required rather than
@@ -181,22 +210,6 @@ internal static class UiTheme
         if (!autoSize) return;
         button.AutoSize = true;
         button.AutoSizeMode = AutoSizeMode.GrowAndShrink;
-    }
-
-    private static readonly string? IconFontName = ResolveIconFont();
-
-    private static string? ResolveIconFont()
-    {
-        foreach (var name in new[] { "Segoe Fluent Icons", "Segoe MDL2 Assets" })
-        {
-            try
-            {
-                using var probe = new Font(name, 10F);
-                if (probe.Name.Equals(name, StringComparison.OrdinalIgnoreCase)) return name;
-            }
-            catch { /* try the next candidate */ }
-        }
-        return null;   // fall back to a plain dot
     }
 
     /// <summary>A filled status dot — used where the meaning is a state, not an action.</summary>
@@ -221,32 +234,37 @@ internal static class UiTheme
     }
 
     /// <summary>
-    /// An icon-font glyph tinted <paramref name="color"/>. Falls back to a status dot when the
-    /// icon font is unavailable, so the image list keeps its indices either way.
+    /// A <see cref="Glyph"/> (SVG path data on the 24 px grid) stroked in <paramref name="color"/>
+    /// at <paramref name="size"/> device pixels.
     /// </summary>
     /// <param name="size">Device pixels; <c>0</c> (the default) means <see cref="IconSize"/>.</param>
     public static Bitmap CreateGlyph(string glyph, Color color, int size = 0)
     {
         if (size <= 0) size = IconSize;
-        if (IconFontName is null) return CreateStatusDot(color, size);
+        float scale = size / 24F;
 
-        var bmp = new Bitmap(size, size);
+        using var path = SvgPath.Parse(glyph);
+        using (var toPixels = new System.Drawing.Drawing2D.Matrix())
+        {
+            toPixels.Scale(scale, scale);
+            path.Transform(toPixels);
+        }
+
+        var bmp = new Bitmap(size, size, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
         using var g = Graphics.FromImage(bmp);
         g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-        g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAliasGridFit;
+        g.PixelOffsetMode = System.Drawing.Drawing2D.PixelOffsetMode.HighQuality;
 
-        // 0.875 rather than the em-size the icon font is drawn for: at 1.0 several glyphs with
-        // full-height detail get clipped by the cell (Server loses its base, Star its point,
-        // Page and Wrench a corner). Below ~0.8 the strokes thin out and the glyph reads as
-        // washed out next to the label beside it — 0.62 was the original value and looked faded.
-        using var font = new Font(IconFontName, size * 0.875F, FontStyle.Regular, GraphicsUnit.Pixel);
-        using var brush = new SolidBrush(color);
-        using var format = new StringFormat
+        // 1.5 grid units is exactly 1 px at 16 px, which anti-aliasing spreads over two pixel rows
+        // and reads as faded next to the label; a floor of 1.25 px keeps the 100 % icons as dark
+        // as the font glyphs they replaced. From 20 px up the grid value wins.
+        using var pen = new Pen(color, Math.Max(1.25F, GlyphStroke * scale))
         {
-            Alignment = StringAlignment.Center,
-            LineAlignment = StringAlignment.Center
+            StartCap = System.Drawing.Drawing2D.LineCap.Round,
+            EndCap = System.Drawing.Drawing2D.LineCap.Round,
+            LineJoin = System.Drawing.Drawing2D.LineJoin.Round
         };
-        g.DrawString(glyph, font, brush, new RectangleF(0, 0, size, size), format);
+        g.DrawPath(pen, path);
         return bmp;
     }
 
